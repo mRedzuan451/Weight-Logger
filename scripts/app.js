@@ -1,0 +1,661 @@
+// --- Global State ---
+let scalePort = null;
+let scaleReader = null;
+let keepReadingScale = false;
+
+let currentScannedData = null;
+let currentWeight = 0;
+let lockedWeight = null;
+let lockedWeightSource = null; // 'auto' or 'manual'
+
+const AUTO_LOCK_THRESHOLD = 0.01; // Minimum change required to refresh auto lock
+const MAX_RECORD_AGE_DAYS = 60;
+const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+// Pagination State
+let allDocs = []; // Will hold all sorted records
+let currentPage = 1;
+const recordsPerPage = 20; // Show 20 records per page
+
+// --- DOM Elements ---
+const connectScaleBtn = document.getElementById('connect-scale-btn');
+const disconnectScaleBtn = document.getElementById('disconnect-scale-btn');
+const scaleStatus = document.getElementById('scale-status');
+const scaleRawData = document.getElementById('scale-raw-data');
+const currentWeightDisplay = document.getElementById('current-weight');
+const unitSelect = document.getElementById('unit-select');
+const lockWeightBtn = document.getElementById('lock-weight-btn');
+
+const qrInput = document.getElementById('qr-input');
+
+const infoLabelId = document.getElementById('info-label-id');
+const infoItemId = document.getElementById('info-item-id');
+const infoItemName = document.getElementById('info-item-name');
+const infoLotNo = document.getElementById('info-lot-no');
+const infoMfgLot = document.getElementById('info-mfg-lot');
+const infoQuantity = document.getElementById('info-quantity');
+const infoLockedWeight = document.getElementById('info-locked-weight');
+
+const saveRecordBtn = document.getElementById('save-record-btn');
+const statusMessage = document.getElementById('status-message');
+
+// Page view elements
+const loggerView = document.getElementById('logger-view');
+const recordsView = document.getElementById('records-view');
+const viewAllBtn = document.getElementById('view-all-btn');
+const backToLoggerBtn = document.getElementById('back-to-logger-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
+const recentRecordsBody = document.getElementById('recent-records-body');
+const allRecordsBody = document.getElementById('all-records-body');
+const logoutBtn = document.getElementById('logout-btn');
+
+// Pagination Elements
+const paginationControls = document.getElementById('pagination-controls');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pageInfo = document.getElementById('page-info');
+
+// --- Utility Functions ---
+function getCurrentUser() {
+    try {
+        const u = localStorage.getItem('current_user');
+        return u ? JSON.parse(u) : null;
+    } catch {
+        return null;
+    }
+}
+
+function redirectToLogin() {
+    const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'index.html');
+    window.location.href = `login.html?return=${ret}`;
+}
+
+function ensureLoggedIn() {
+    const user = getCurrentUser();
+    if (!user || !(user.name || user.username)) {
+        redirectToLogin();
+        return false;
+    }
+    return true;
+}
+
+function handleLogout(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    localStorage.removeItem('current_user');
+    redirectToLogin();
+}
+
+function pruneOldRecords(records) {
+    if (!Array.isArray(records)) {
+        return [];
+    }
+    const cutoff = Date.now() - MAX_RECORD_AGE_MS;
+    return records.filter(record => {
+        if (!record || !record.timestamp) {
+            return true;
+        }
+        const time = new Date(record.timestamp).getTime();
+        return Number.isNaN(time) || time >= cutoff;
+    });
+}
+
+function showStatusMessage(message, isError = false) {
+    statusMessage.textContent = message;
+    statusMessage.className = 'status-message'; // Reset classes
+    if (isError) {
+        statusMessage.classList.add('status-error');
+    } else {
+        statusMessage.classList.add('status-success');
+    }
+    statusMessage.style.display = 'block';
+    setTimeout(() => {
+        statusMessage.style.display = 'none';
+    }, 3000);
+}
+
+function checkSaveButtonState() {
+    if (currentScannedData && lockedWeight !== null) {
+        saveRecordBtn.disabled = false;
+    } else {
+        saveRecordBtn.disabled = true;
+    }
+}
+
+function updateLockedWeightDisplay() {
+    if (lockedWeight !== null) {
+        const unit = unitSelect.value;
+        infoLockedWeight.textContent = `${lockedWeight.toFixed(2)} ${unit}`;
+    } else {
+        infoLockedWeight.textContent = '--';
+    }
+}
+
+function setLockedWeight(weight, source, { showMessage = false } = {}) {
+    if (typeof weight !== 'number' || isNaN(weight)) {
+        return false;
+    }
+
+    const normalizedSource = source === 'manual' ? 'manual' : 'auto';
+    const isManual = normalizedSource === 'manual';
+
+    if (!isManual && lockedWeightSource === 'manual') {
+        return false; // Respect manual lock unless user updates it
+    }
+
+    const shouldOverride = isManual
+        || lockedWeight === null
+        || Math.abs((lockedWeight ?? 0) - weight) > AUTO_LOCK_THRESHOLD
+        || lockedWeightSource !== normalizedSource;
+
+    if (!shouldOverride) {
+        return false;
+    }
+
+    lockedWeight = weight;
+    lockedWeightSource = normalizedSource;
+    updateLockedWeightDisplay();
+
+    if (showMessage) {
+        const message = normalizedSource === 'auto'
+            ? 'Weight auto-locked from scale.'
+            : 'Weight locked!';
+        showStatusMessage(message, false);
+    }
+
+    checkSaveButtonState();
+    return true;
+}
+
+function resetForm() {
+    currentScannedData = null;
+    lockedWeight = null;
+    lockedWeightSource = null;
+
+    infoLabelId.textContent = '--';
+    infoItemId.textContent = '--';
+    infoItemName.textContent = '--';
+    infoLotNo.textContent = '--';
+    infoMfgLot.textContent = '--';
+    infoQuantity.textContent = '--';
+    updateLockedWeightDisplay();
+
+    qrInput.value = '';
+    qrInput.focus();
+    checkSaveButtonState();
+}
+
+// --- Page Navigation ---
+viewAllBtn.addEventListener('click', () => {
+    loggerView.style.display = 'none';
+    recordsView.style.display = 'block';
+});
+
+backToLoggerBtn.addEventListener('click', () => {
+    recordsView.style.display = 'none';
+    loggerView.style.display = 'block';
+});
+
+// --- Pagination Navigation ---
+prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderAllRecordsView();
+    }
+});
+
+nextPageBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(allDocs.length / recordsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderAllRecordsView();
+    }
+});
+
+exportCsvBtn.addEventListener('click', () => {
+    exportAllRecordsAsCsv();
+});
+
+// --- Web Serial API (Scale) ---
+connectScaleBtn.addEventListener('click', async () => {
+    if ('serial' in navigator) {
+        try {
+            scalePort = await navigator.serial.requestPort();
+            await scalePort.open({
+                baudRate: 2400,
+                dataBits: 7,
+                stopBits: 1,
+                parity: 'even'
+            });
+
+            scaleStatus.textContent = 'Connected';
+            scaleStatus.className = 'text-xl font-bold text-green-600';
+            connectScaleBtn.style.display = 'none';
+            disconnectScaleBtn.style.display = 'block';
+
+            keepReadingScale = true;
+            qrInput.focus();
+            readFromScale();
+        } catch (err) {
+            console.error('Error connecting to scale:', err);
+            scaleStatus.textContent = 'Connection Failed';
+            scaleStatus.className = 'text-xl font-bold text-red-600';
+            showStatusMessage(err.message, true);
+        }
+    } else {
+        showStatusMessage('Web Serial API not supported in your browser.', true);
+    }
+});
+
+disconnectScaleBtn.addEventListener('click', async () => {
+    keepReadingScale = false;
+    if (scaleReader) {
+        try {
+            await scaleReader.cancel();
+        } catch (err) {
+            console.warn('Error cancelling reader:', err);
+        }
+    }
+    if (scalePort) {
+        try {
+            await scalePort.close();
+        } catch (err) {
+            console.warn('Error closing port:', err);
+        }
+    }
+
+    scalePort = null;
+    scaleReader = null;
+    scaleStatus.textContent = 'Not Connected';
+    scaleStatus.className = 'text-xl font-bold text-red-600';
+    connectScaleBtn.style.display = 'block';
+    disconnectScaleBtn.style.display = 'none';
+});
+
+async function readFromScale() {
+    const textDecoder = new TextDecoderStream();
+    const readableStreamClosed = scalePort.readable.pipeTo(textDecoder.writable);
+    scaleReader = textDecoder.readable.getReader();
+
+    let lineBuffer = '';
+
+    while (scalePort.readable && keepReadingScale) {
+        try {
+            const { value, done } = await scaleReader.read();
+            if (done) {
+                break;
+            }
+
+            lineBuffer += value;
+            const lines = lineBuffer.split('\n');
+            lineBuffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.trim()) {
+                    parseScaleData(line.trim());
+                }
+            }
+        } catch (error) {
+            console.error('Error reading from scale:', error);
+            break;
+        }
+    }
+
+    if (scaleReader) {
+        try {
+            scaleReader.releaseLock();
+        } catch {}
+    }
+    try {
+        await readableStreamClosed.catch(() => {});
+    } catch {}
+}
+
+function parseScaleData(data) {
+    scaleRawData.textContent = data;
+
+    const parts = data.split(',');
+    if (parts.length >= 2) {
+        const weight = parseFloat(parts[1]);
+
+        if (!isNaN(weight)) {
+            currentWeight = weight;
+            currentWeightDisplay.textContent = weight.toFixed(2);
+            setLockedWeight(currentWeight, 'auto');
+        }
+    } else {
+        const weight = parseFloat(data);
+        if (!isNaN(weight)) {
+            currentWeight = weight;
+            currentWeightDisplay.textContent = weight.toFixed(2);
+            setLockedWeight(currentWeight, 'auto');
+        }
+    }
+}
+
+// --- QR Code Scanner ---
+qrInput.addEventListener('click', (event) => {
+    event.target.value = '';
+});
+qrInput.addEventListener('change', (event) => {
+    const data = event.target.value;
+    if (data) {
+        handleQrData(data);
+        event.target.value = '';
+    }
+});
+
+function handleQrData(data) {
+    const raw = (data || '').trim();
+    if (!raw) {
+        return;
+    }
+
+    const assignScannedData = (scannedData, statusText) => {
+        currentScannedData = scannedData;
+        infoLabelId.textContent = scannedData.labelId || '--';
+        infoItemId.textContent = scannedData.itemId || '--';
+        infoItemName.textContent = scannedData.itemName || '--';
+        infoLotNo.textContent = scannedData.lotNo || '--';
+        infoMfgLot.textContent = scannedData.manufacturingLot || '--';
+        infoQuantity.textContent = scannedData.quantity || '--';
+        if (statusText) {
+            showStatusMessage(statusText, false);
+        }
+        checkSaveButtonState();
+    };
+
+    const fallbackData = {
+        labelId: raw,
+        itemId: '--',
+        itemName: '--',
+        lotNo: '--',
+        manufacturingLot: '--',
+        quantity: '--',
+        originalQrData: raw
+    };
+
+    if (!raw.startsWith('{')) {
+        assignScannedData(fallbackData, 'Barcode scanned (non-JSON format).');
+        return;
+    }
+
+    try {
+        const parsedData = JSON.parse(raw);
+        if (parsedData.id && parsedData.item && parsedData.name) {
+            let quantity = '--';
+            let lotNo = '--';
+            if (parsedData.detail && parsedData.detail.length > 0) {
+                const detailParts = parsedData.detail[0].split(',');
+                if (detailParts.length >= 4) {
+                    lotNo = detailParts[3];
+                }
+                if (detailParts.length >= 5) {
+                    quantity = parseFloat(detailParts[4]).toString();
+                }
+            }
+
+            assignScannedData({
+                labelId: parsedData.id,
+                itemId: parsedData.item,
+                itemName: parsedData.name,
+                lotNo: lotNo,
+                manufacturingLot: parsedData.mfglot,
+                quantity: quantity,
+                originalQrData: parsedData
+            }, 'QR Code scanned successfully!');
+        } else {
+            throw new Error("Invalid JSON structure in QR code. Missing 'id', 'item', or 'name'.");
+        }
+    } catch (err) {
+        console.warn('QR Parse Error:', err);
+        assignScannedData(fallbackData, 'Scanned data is not valid JSON. Stored as plain barcode.');
+    }
+}
+
+// --- Data Locking & Saving ---
+lockWeightBtn.addEventListener('click', () => {
+    setLockedWeight(currentWeight, 'manual', { showMessage: true });
+});
+
+unitSelect.addEventListener('change', () => {
+    updateLockedWeightDisplay();
+});
+
+saveRecordBtn.addEventListener('click', async () => {
+    if (!currentScannedData || lockedWeight === null) {
+        showStatusMessage('Missing data or weight.', true);
+        return;
+    }
+
+    saveRecordBtn.disabled = true;
+    saveRecordBtn.textContent = 'Saving...';
+
+    try {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showStatusMessage('Please login before saving.', true);
+            const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'index.html');
+            window.location.href = `login.html?return=${ret}`;
+            return;
+        }
+        const record = {
+            ...currentScannedData,
+            measuredWeight: lockedWeight,
+            unit: unitSelect.value,
+            timestamp: new Date().toISOString(),
+            responsibleUser: currentUser.displayName || currentUser.name || currentUser.username || ''
+        };
+
+        const storedRecords = localStorage.getItem('weight_records');
+        let records = storedRecords ? JSON.parse(storedRecords) : [];
+
+        records.push(record);
+        records = pruneOldRecords(records);
+
+        localStorage.setItem('weight_records', JSON.stringify(records));
+
+        showStatusMessage('Record saved successfully!', false);
+        resetForm();
+        loadRecords();
+    } catch (err) {
+        console.error('Error saving record:', err);
+        showStatusMessage('Error saving record. Check console.', true);
+    } finally {
+        saveRecordBtn.disabled = false;
+        saveRecordBtn.textContent = 'Save Record to Database';
+        checkSaveButtonState();
+    }
+});
+
+// --- Data Loading (from localStorage) ---
+function loadRecords() {
+    let loadedDocs = [];
+    try {
+        const storedRecords = localStorage.getItem('weight_records');
+        loadedDocs = storedRecords ? JSON.parse(storedRecords) : [];
+        const prunedDocs = pruneOldRecords(loadedDocs);
+        if (prunedDocs.length !== loadedDocs.length) {
+            localStorage.setItem('weight_records', JSON.stringify(prunedDocs));
+        }
+        loadedDocs = prunedDocs;
+    } catch (error) {
+        console.error('Error parsing records from localStorage:', error);
+        showStatusMessage('Error loading records from storage.', true);
+        loadedDocs = [];
+    }
+
+    if (loadedDocs.length === 0) {
+        recentRecordsBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="py-6 text-center text-gray-500">No records found.</td>
+            </tr>`;
+        allRecordsBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="py-6 text-center text-gray-500">No records found.</td>
+            </tr>`;
+        allDocs = [];
+        paginationControls.style.display = 'none';
+        pageInfo.textContent = 'Page 0 of 0';
+        return;
+    }
+
+    loadedDocs.sort((a, b) => {
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    allDocs = loadedDocs;
+
+    recentRecordsBody.innerHTML = '';
+    const recentDocs = allDocs.slice(0, 5);
+    if (recentDocs.length === 0) {
+        recentRecordsBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="py-6 text-center text-gray-500">No records found.</td>
+            </tr>`;
+    } else {
+        recentDocs.forEach(doc => {
+            recentRecordsBody.appendChild(createRecordRow(doc));
+        });
+    }
+
+    const totalPages = Math.ceil(allDocs.length / recordsPerPage);
+    if (currentPage > totalPages) {
+        currentPage = totalPages || 1;
+    }
+    renderAllRecordsView();
+}
+
+function renderAllRecordsView() {
+    allRecordsBody.innerHTML = '';
+
+    const docs = allDocs || [];
+
+    if (docs.length === 0) {
+        allRecordsBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="py-6 text-center text-gray-500">No records found.</td>
+            </tr>`;
+        paginationControls.style.display = 'none';
+        pageInfo.textContent = 'Page 0 of 0';
+        return;
+    }
+
+    paginationControls.style.display = 'flex';
+
+    const totalPages = Math.ceil(docs.length / recordsPerPage);
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * recordsPerPage;
+    const endIndex = startIndex + recordsPerPage;
+    const paginatedDocs = docs.slice(startIndex, endIndex);
+
+    paginatedDocs.forEach(doc => {
+        allRecordsBody.appendChild(createRecordRow(doc));
+    });
+
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+    prevPageBtn.disabled = currentPage === 1;
+    nextPageBtn.disabled = currentPage === totalPages;
+}
+
+function createRecordRow(data) {
+    const row = document.createElement('tr');
+    const date = data.timestamp ? new Date(data.timestamp).toLocaleString() : '--';
+    const labelId = data.labelId || '--';
+    const itemName = data.itemName || '--';
+    const itemId = data.itemId || '--';
+    const lotNo = data.lotNo || '--';
+    const manufacturingLot = data.manufacturingLot || '--';
+    const quantity = data.quantity || '--';
+    const responsible = data.responsibleUser || '--';
+    const weight = typeof data.measuredWeight === 'number'
+        ? `${data.measuredWeight.toFixed(2)} ${data.unit || 'g'}`
+        : '--';
+
+    row.innerHTML = `
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${labelId}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${itemName}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${itemId}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${lotNo}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${manufacturingLot}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${quantity}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${responsible}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${weight}</td>
+    `;
+    return row;
+}
+
+// --- Start Application ---
+document.addEventListener('DOMContentLoaded', () => {
+    if (!ensureLoggedIn()) return;
+    logoutBtn?.addEventListener('click', handleLogout);
+    loadRecords();
+});
+
+function exportAllRecordsAsCsv() {
+    if (!allDocs || allDocs.length === 0) {
+        showStatusMessage('No records to export.', true);
+        return;
+    }
+
+    const headers = [
+        'Date',
+        'Label ID',
+        'Item Name',
+        'Item ID',
+        'Lot No',
+        'Manufacturing Lot',
+        'Quantity',
+        'Responsible',
+        'Weight',
+        'Unit'
+    ];
+
+    const rows = allDocs.map(record => {
+        const date = record.timestamp ? new Date(record.timestamp).toISOString() : '';
+        const weight = typeof record.measuredWeight === 'number' ? record.measuredWeight.toFixed(2) : '';
+        return [
+            date,
+            record.labelId || '',
+            record.itemName || '',
+            record.itemId || '',
+            record.lotNo || '',
+            record.manufacturingLot || '',
+            record.quantity || '',
+            record.responsibleUser || '',
+            weight,
+            record.unit || ''
+        ];
+    });
+
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(value => escapeCsv(value)).join(','))
+        .join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `weight-records-${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showStatusMessage('CSV exported successfully.', false);
+}
+
+function escapeCsv(value) {
+    const stringValue = String(value ?? '');
+    if (/[",\n]/.test(stringValue)) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weight & QR Logger</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple status message styling */
+        .status-message {
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0.5rem;
+            display: none; /* Hidden by default */
+        }
+        .status-success {
+            background-color: #d1fae5; /* green-100 */
+            color: #065f46; /* green-800 */
+        }
+        .status-error {
+            background-color: #fee2e2; /* red-100 */
+            color: #991b1b; /* red-800 */
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans bg-gray-100 p-6">
+
+    <div class="w-full max-w-4xl mx-auto mt-10">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 text-center sm:text-left">Relay Contact Weight Logger</h1>
+            <div class="flex flex-wrap gap-2 justify-center sm:justify-end">
+                <button id="logout-btn" type="button" class="inline-flex justify-center bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-5 rounded-lg transition-colors">
+                    Log out
+                </button>
+                <a href="./menu.html" class="inline-flex justify-center bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-5 rounded-lg transition-colors">
+                    Back to Menu
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow-md md:col-span-2">
+                <h3 class="font-semibold text-gray-600">Scale Status</h3>
+                <span id="scale-status" class="text-xl font-bold text-red-600">Not Connected</span>
+                <p class="text-sm text-gray-500 mt-2">Raw Data: <code id="scale-raw-data" class="bg-gray-200 px-2 py-1 rounded">...</code></p>
+            </div>
+        </div>
+
+        <!-- Main Logger View (Visible by default) -->
+        <div id="logger-view">
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Scale Controls -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-semibold mb-4 border-b pb-3">1. Connect Scale</h2>
+                        <button id="connect-scale-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Connect to Digital Scale
+                        </button>
+                        <button id="disconnect-scale-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-2" style="display: none;">
+                            Disconnect Scale
+                        </button>
+                    </div>
+
+                    <!-- Weight Display -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-semibold mb-4 border-b pb-3">3. Measure Weight</h2>
+                        <div class="text-center mb-4">
+                            <span id="current-weight" class="text-6xl font-bold text-gray-800">0.00</span>
+                            <select id="unit-select" class="ml-2 text-lg border-gray-300 rounded-md shadow-sm">
+                                <option value="g">g</option>
+                                <option value="kg">kg</option>
+                                <option value="lb">lb</option>
+                                <option value="oz">oz</option>
+                            </select>
+                        </div>
+                        <button id="lock-weight-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                            Lock Current Weight
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- QR Scanner -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-semibold mb-4 border-b pb-3">2. Scan Packet</h2>
+                        <label for="qr-input" class="block text-sm font-medium text-gray-700 mb-1">Scan QR code into this field:</label>
+                        <input type="text" id="qr-input" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Click here and then scan...">
+                        <p class="text-xs text-gray-500 mt-2">Note: QR code must be JSON format. E.g., {"id": "LBL-123", "item": "ITM-456", ...}</p>
+                    </div>
+
+                    <!-- Confirm & Save -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-semibold mb-4 border-b pb-3">4. Confirm & Save</h2>
+                        <div class="space-y-3">
+                            <div>
+                                <span class="font-semibold text-gray-600">Label ID:</span>
+                                <span id="info-label-id" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-gray-600">Item ID:</span>
+                                <span id="info-item-id" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-gray-600">Item Name:</span>
+                                <span id="info-item-name" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-gray-600">Lot No:</span>
+                                <span id="info-lot-no" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <!-- NEW FIELD -->
+                            <div>
+                                <span class="font-semibold text-gray-600">Mfg. Lot:</span>
+                                <span id="info-mfg-lot" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-gray-600">Quantity:</span>
+                                <span id="info-quantity" class="font-mono text-gray-800 float-right">--</span>
+                            </div>
+                            <div class="border-t pt-3">
+                                <span class="font-semibold text-gray-600">Locked Weight:</span>
+                                <span id="info-locked-weight" class="text-xl font-bold text-blue-700 float-right">--</span>
+                            </div>
+                        </div>
+                        <button id="save-record-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-6" disabled>
+                            Save Record to Database
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status Message Box -->
+                <div id="status-message" class="status-message"></div>
+            </div>
+
+            <!-- Recent Records -->
+            <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
+                <div class="flex justify-between items-center mb-4 border-b pb-3">
+                    <h2 class="text-2xl font-semibold">Recent Records</h2>
+                    <button id="view-all-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        View All
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quantity</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-records-body" class="bg-white divide-y Divide-gray-200">
+                            <tr>
+                                <td colspan="9" class="py-6 text-center text-gray-500">No records loaded yet...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Records View (Hidden by default) -->
+        <div id="records-view" class="bg-white p-6 rounded-lg shadow-lg mt-6" style="display: none;">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4 border-b pb-3">
+                <h2 class="text-2xl font-semibold">All Records</h2>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <button id="export-csv-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Export CSV
+                    </button>
+                    <button id="back-to-logger-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Back to Logger
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <div class="max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quantity</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+                                <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-records-body" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="9" class="py-6 text-center text-gray-500">Loading records...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Pagination Controls -->
+            <div id="pagination-controls" class="flex justify-between items-center mt-4 pt-4 border-t" style="display: none;">
+                <button id="prev-page-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:opacity-50" disabled>
+                    &larr; Previous
+                </button>
+                <span id="page-info" class="text-gray-700 font-medium">Page 1 of 1</span>
+                <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:opacity-50" disabled>
+                    Next &rarr;
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="./scripts/app.js"></script>
+</body>
+</html>
