@@ -306,7 +306,35 @@ qrInput.addEventListener('click', (e) => {
 qrInput.addEventListener('change', (e) => {
   const data = e.target.value;
   if (!data) return;
-  currentScannedData = parseScanned(data);
+  const scanned = parseScanned(data);
+  if (!scanned) {
+    showStatus('Unable to read scanned code.', true);
+    return;
+  }
+
+  // Attempt to resolve against stock-in records using unique labelId
+  let resolved = scanned;
+  if (scanned.labelId && scanned.labelId !== '--') {
+    const ins = readLocal('weight_records');
+    const match = ins.find((rec) => rec.labelId === scanned.labelId);
+    if (match) {
+      resolved = {
+        labelId: match.labelId,
+        itemId: match.itemId,
+        itemName: match.itemName,
+        lotNo: match.lotNo,
+        manufacturingLot: match.manufacturingLot,
+        quantity: match.quantity,
+        originalQrData: scanned.originalQrData ?? scanned,
+      };
+    } else {
+      showStatus('No stock-in record found for this label. Available weight may be zero.', true);
+    }
+  } else {
+    showStatus('Scanned code missing label ID.', true);
+  }
+
+  currentScannedData = resolved;
   updateInfo(currentScannedData);
   showStatus('Code scanned.', false);
   refreshAvailable();
