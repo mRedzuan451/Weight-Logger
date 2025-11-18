@@ -39,7 +39,13 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   const adminBtn = document.getElementById('admin-btn');
-  if (isAdmin(user)) {
-    adminBtn?.classList.remove('hidden');
+  if (adminBtn) {
+    if (isAdmin(user)) {
+      adminBtn.classList.remove('hidden');
+      adminBtn.style.display = 'block';
+    } else {
+      adminBtn.classList.add('hidden');
+      adminBtn.style.display = 'none';
+    }
   }
 });
