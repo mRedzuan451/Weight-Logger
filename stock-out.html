@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Out</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#1f2937">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .status-message { padding: 1rem; margin-top: 1rem; border-radius: 0.5rem; display: none; }
@@ -96,6 +98,7 @@
         </div>
     </div>
 
-    <script src="./scripts/stock-out.js"></script>
+    <script src="./scripts/sw-register.js" defer></script>
+    <script src="./scripts/stock-out.js" defer></script>
 </body>
 </html>

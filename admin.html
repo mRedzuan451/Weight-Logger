@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin - History Logs</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f2937" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen font-sans bg-gray-100 p-6">
@@ -61,6 +63,7 @@
     </div>
   </div>
 
-  <script src="./scripts/admin.js"></script>
+  <script src="./scripts/sw-register.js" defer></script>
+  <script src="./scripts/admin.js" defer></script>
 </body>
 </html>

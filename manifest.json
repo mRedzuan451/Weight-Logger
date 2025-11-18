@@ -1,0 +1,11 @@
+{
+  "name": "Weight Logger",
+  "short_name": "WeightLogger",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#1f2937",
+  "description": "Log stock-in and stock-out weights with offline support.",
+  "icons": []
+}
