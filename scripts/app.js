@@ -102,6 +102,7 @@ const infoLotNo = document.getElementById('info-lot-no');
 const infoMfgLot = document.getElementById('info-mfg-lot');
 const infoQuantity = document.getElementById('info-quantity');
 const infoLockedWeight = document.getElementById('info-locked-weight');
+const infoPrevWeight = document.getElementById('info-prev-weight');
 
 const saveRecordBtn = document.getElementById('save-record-btn');
 const statusMessage = document.getElementById('status-message');
@@ -175,6 +176,10 @@ function applyPartialPacketLogic(scanned) {
         const clone = { ...scanned };
         clone._partialBaseWeightGrams = baseWeightGrams;
         clone._partialBaseQty = baseQty;
+        if (!Number.isNaN(baseWeight) && isFinite(baseWeight)) {
+            const baseDisplay = `${Number(baseWeight).toFixed(2)} ${baseUnit}`;
+            clone.previousWeightDisplay = baseDisplay;
+        }
         // Defer quantity calculation until weight is locked
         clone.quantity = '--';
         showStatusMessage('Partial packet detected: quantity will be estimated from weight when saving.', false);
@@ -317,6 +322,7 @@ function resetForm() {
     infoLotNo.textContent = '--';
     infoMfgLot.textContent = '--';
     infoQuantity.textContent = '--';
+    if (infoPrevWeight) infoPrevWeight.textContent = '--';
     updateLockedWeightDisplay();
 
     qrInput.value = '';
@@ -559,6 +565,13 @@ function handleQrData(data) {
         infoLotNo.textContent = scannedData.lotNo || '--';
         infoMfgLot.textContent = scannedData.manufacturingLot || '--';
         infoQuantity.textContent = scannedData.quantity || '--';
+        if (infoPrevWeight) {
+            if (scannedData.previousWeightDisplay) {
+                infoPrevWeight.textContent = scannedData.previousWeightDisplay;
+            } else {
+                infoPrevWeight.textContent = '--';
+            }
+        }
         if (statusText) {
             showStatusMessage(statusText, false);
         }
