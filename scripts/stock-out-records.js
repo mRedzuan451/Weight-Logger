@@ -34,7 +34,7 @@ function ensureLoggedIn() {
 function showEmpty(message) {
   recordsBody.innerHTML = `
     <tr>
-      <td colspan="9" class="py-6 text-center text-gray-500">${message}</td>
+      <td colspan="8" class="py-6 text-center text-gray-500">${message}</td>
     </tr>`;
 }
 
@@ -84,6 +84,7 @@ function renderPage() {
   pageRecords.forEach(record => {
     const row = document.createElement('tr');
     const date = record.timestamp ? new Date(record.timestamp).toLocaleString() : '--';
+    const status = (record.status || '').toUpperCase() || 'OUT';
     row.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.labelId || '--'}</td>
@@ -92,8 +93,7 @@ function renderPage() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.lotNo || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.manufacturingLot || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.responsibleUser || '--'}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${formatWeight(record.outWeight)}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.unit || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${status}</td>
     `;
     recordsBody.appendChild(row);
   });
@@ -102,13 +102,6 @@ function renderPage() {
   pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
   prevPageBtn.disabled = currentPage === 1;
   nextPageBtn.disabled = currentPage === totalPages;
-}
-
-function formatWeight(value) {
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return value.toFixed(2);
-  }
-  return '--';
 }
 
 prevPageBtn.addEventListener('click', () => {
@@ -132,7 +125,7 @@ exportCsvBtn.addEventListener('click', () => {
     return;
   }
 
-  const headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Responsible', 'Out Weight', 'Unit'];
+  const headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Responsible', 'Status'];
   const rows = allRecords.map(record => [
     record.timestamp ? new Date(record.timestamp).toISOString() : '',
     record.labelId || '',
@@ -141,8 +134,7 @@ exportCsvBtn.addEventListener('click', () => {
     record.lotNo || '',
     record.manufacturingLot || '',
     record.responsibleUser || '',
-    typeof record.outWeight === 'number' ? record.outWeight.toFixed(2) : '',
-    record.unit || ''
+    (record.status || 'OUT').toUpperCase()
   ]);
 
   const csv = [headers, ...rows]

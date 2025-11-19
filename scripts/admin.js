@@ -115,6 +115,7 @@ function parseDateOnly(d) {
 
 function render(records) {
   const tbody = document.getElementById('admin-records-body');
+  statusMessage('');
   tbody.innerHTML = '';
   if (!records || records.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-gray-500">No records found.</td></tr>';
@@ -196,6 +197,37 @@ function escapeCsv(value) {
   return str;
 }
 
+function statusMessage(message, isError = false) {
+  const box = document.getElementById('admin-status');
+  if (!box) return;
+  if (!message) {
+    box.style.display = 'none';
+    box.textContent = '';
+    box.className = 'status-message';
+    return;
+  }
+  box.textContent = message;
+  box.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+  box.style.display = 'block';
+  setTimeout(() => {
+    box.style.display = 'none';
+  }, 3000);
+}
+
+function clearAllData() {
+  if (!confirm('This will remove ALL stock-in and stock-out records. Continue?')) return;
+  try {
+    localStorage.removeItem('weight_records');
+    localStorage.removeItem('stock_out_records');
+    cachedRecords = [];
+    render([]);
+    statusMessage('All records cleared.');
+  } catch (error) {
+    console.error('Failed to clear records:', error);
+    statusMessage('Failed to clear records. Check console.', true);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const user = getCurrentUser();
   if (!user) {
@@ -215,6 +247,7 @@ window.addEventListener('DOMContentLoaded', () => {
     render(loadCombinedRecords());
   });
   document.getElementById('export-csv')?.addEventListener('click', exportCsv);
+  document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
 
   render(loadCombinedRecords());
 });
