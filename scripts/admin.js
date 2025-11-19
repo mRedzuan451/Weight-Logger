@@ -128,9 +128,10 @@ function render(records) {
     const tr = document.createElement('tr');
     const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
     const weight = typeof r.weight === 'number' ? r.weight.toFixed(2) : '--';
+    const typeColor = r.type === 'IN' ? '#047857' : '#b91c1c'; // green vs red
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold ${r.type === 'IN' ? 'text-green-700' : 'text-red-700'}">${r.type}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold" style="color: ${typeColor};">${r.type}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemId}</td>
