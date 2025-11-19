@@ -11,6 +11,7 @@ const infoItemId = document.getElementById('info-item-id');
 const infoItemName = document.getElementById('info-item-name');
 const infoLotNo = document.getElementById('info-lot-no');
 const infoMfgLot = document.getElementById('info-mfg-lot');
+const infoQuantity = document.getElementById('info-quantity');
 const infoStatus = document.getElementById('info-status');
 const saveOutBtn = document.getElementById('save-out-btn');
 const statusMessage = document.getElementById('status-message');
@@ -138,16 +139,37 @@ function updateInfo(scanned) {
   infoItemName.textContent = scanned?.itemName || '--';
   infoLotNo.textContent = scanned?.lotNo || '--';
   infoMfgLot.textContent = scanned?.manufacturingLot || '--';
+  infoQuantity.textContent = scanned?.quantity || '--';
 }
 
 function getStatusForLabel(labelId) {
   if (!labelId) return 'Scan an item';
   const outs = readLocal('stock_out_records');
   const ins = readLocal('weight_records');
-  const hasOut = outs.some((rec) => rec?.labelId === labelId);
-  if (hasOut) return 'Out of Stock';
-  const hasIn = ins.some((rec) => rec?.labelId === labelId);
-  return hasIn ? 'In Stock' : 'Not Found';
+
+  let latestInTime = -Infinity;
+  let latestOutTime = -Infinity;
+  let hasIn = false;
+  let hasOut = false;
+
+  for (const rec of ins) {
+    if (!rec || rec.labelId !== labelId) continue;
+    hasIn = true;
+    const t = rec.timestamp ? new Date(rec.timestamp).getTime() : 0;
+    if (!Number.isNaN(t) && t > latestInTime) latestInTime = t;
+  }
+
+  for (const rec of outs) {
+    if (!rec || rec.labelId !== labelId) continue;
+    hasOut = true;
+    const t = rec.timestamp ? new Date(rec.timestamp).getTime() : 0;
+    if (!Number.isNaN(t) && t > latestOutTime) latestOutTime = t;
+  }
+
+  if (!hasIn && !hasOut) return 'Not Found';
+  if (hasIn && (!hasOut || latestInTime > latestOutTime)) return 'In Stock';
+  if (hasOut && (!hasIn || latestOutTime >= latestInTime)) return 'Out of Stock';
+  return 'Not Found';
 }
 
 function updateStatusMessage(labelId) {
@@ -169,23 +191,33 @@ qrInput.addEventListener('change', (e) => {
     return;
   }
 
-  // Attempt to resolve against stock-in records using unique labelId
+  // Attempt to resolve against the latest stock-in record using unique labelId
   let resolved = scanned;
   if (scanned.labelId && scanned.labelId !== '--') {
     const ins = readLocal('weight_records');
-    const match = ins.find((rec) => rec.labelId === scanned.labelId);
-    if (match) {
+    let latest = null;
+    let latestTime = -Infinity;
+    for (const rec of ins) {
+      if (!rec || rec.labelId !== scanned.labelId) continue;
+      const t = rec.timestamp ? new Date(rec.timestamp).getTime() : 0;
+      if (!Number.isNaN(t) && t > latestTime) {
+        latest = rec;
+        latestTime = t;
+      }
+    }
+
+    if (latest) {
       resolved = {
-        labelId: match.labelId,
-        itemId: match.itemId,
-        itemName: match.itemName,
-        lotNo: match.lotNo,
-        manufacturingLot: match.manufacturingLot,
-        quantity: match.quantity,
+        labelId: latest.labelId,
+        itemId: latest.itemId,
+        itemName: latest.itemName,
+        lotNo: latest.lotNo,
+        manufacturingLot: latest.manufacturingLot,
+        quantity: latest.quantity,
         originalQrData: scanned.originalQrData ?? scanned,
       };
     } else {
-      showStatus('No stock-in record found for this label. Available weight may be zero.', true);
+      showStatus('No stock-in record found for this label. It may not be in stock.', true);
     }
   } else {
     showStatus('Scanned code missing label ID.', true);
