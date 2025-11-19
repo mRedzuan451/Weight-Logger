@@ -28,6 +28,48 @@ function toGrams(value, unit) {
     return (parseFloat(value) || 0) * f;
 }
 
+// Check if a label already has an active stock-in (latest event for that label is IN)
+function hasActiveStockInForLabel(labelId) {
+    try {
+        if (!labelId) return false;
+
+        const insRaw = localStorage.getItem('weight_records');
+        const outsRaw = localStorage.getItem('stock_out_records');
+        const ins = insRaw ? JSON.parse(insRaw) : [];
+        const outs = outsRaw ? JSON.parse(outsRaw) : [];
+        if (!Array.isArray(ins) && !Array.isArray(outs)) return false;
+
+        const events = [];
+        if (Array.isArray(ins)) {
+            for (const r of ins) {
+                if (r && r.labelId === labelId) {
+                    events.push({ type: 'IN', timestamp: r.timestamp || '' });
+                }
+            }
+        }
+        if (Array.isArray(outs)) {
+            for (const r of outs) {
+                if (r && r.labelId === labelId) {
+                    events.push({ type: 'OUT', timestamp: r.timestamp || '' });
+                }
+            }
+        }
+
+        if (!events.length) return false;
+
+        events.sort((a, b) => {
+            const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return tb - ta;
+        });
+
+        return events[0].type === 'IN';
+    } catch (err) {
+        console.error('Error checking active stock-in for label:', err);
+        return false;
+    }
+}
+
 let currentScannedData = null;
 let currentWeight = 0;
 let lockedWeight = null;
@@ -534,6 +576,10 @@ function handleQrData(data) {
     };
 
     if (!raw.startsWith('{')) {
+        if (hasActiveStockInForLabel(fallbackData.labelId)) {
+            window.alert(`Label ${fallbackData.labelId} is already stocked in and not yet stocked out.`);
+            return;
+        }
         const adjusted = applyPartialPacketLogic(fallbackData);
         assignScannedData(adjusted, 'Barcode scanned (non-JSON format).');
         return;
@@ -563,6 +609,11 @@ function handleQrData(data) {
                 quantity: quantity,
                 originalQrData: parsedData
             };
+
+            if (hasActiveStockInForLabel(baseScanned.labelId)) {
+                window.alert(`Label ${baseScanned.labelId} is already stocked in and not yet stocked out.`);
+                return;
+            }
 
             const adjusted = applyPartialPacketLogic(baseScanned);
             assignScannedData(adjusted, 'QR Code scanned successfully!');
