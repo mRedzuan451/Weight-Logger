@@ -1,5 +1,32 @@
 'use strict';
 
+const LOGIN_HISTORY_KEY = 'login_history';
+const MAX_HISTORY_DAYS = 60;
+const MAX_HISTORY_MS = MAX_HISTORY_DAYS * 24 * 60 * 60 * 1000;
+
+function pruneHistory(history) {
+  if (!Array.isArray(history)) return [];
+  const cutoff = Date.now() - MAX_HISTORY_MS;
+  return history.filter(entry => {
+    if (!entry || !entry.timestamp) return false;
+    const time = new Date(entry.timestamp).getTime();
+    return Number.isNaN(time) || time >= cutoff;
+  });
+}
+
+function recordLoginHistory(entry) {
+  try {
+    const raw = localStorage.getItem(LOGIN_HISTORY_KEY);
+    let history = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(history)) history = [];
+    history.push(entry);
+    const pruned = pruneHistory(history);
+    localStorage.setItem(LOGIN_HISTORY_KEY, JSON.stringify(pruned));
+  } catch (error) {
+    console.warn('Unable to record login history:', error);
+  }
+}
+
 function getReturnUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -14,13 +41,22 @@ function setCurrentUser(user) {
   const employeeId = (user?.employeeId || user?.username || '').trim();
   const displayName = name && employeeId ? `${name} (${employeeId})` : (name || employeeId);
 
-  localStorage.setItem('current_user', JSON.stringify({
+  const payload = {
     name,
     employeeId,
     username: employeeId, // keep for backward compatibility
     displayName,
     at: new Date().toISOString(),
-  }));
+  };
+
+  localStorage.setItem('current_user', JSON.stringify(payload));
+
+  recordLoginHistory({
+    name,
+    employeeId,
+    displayName,
+    timestamp: payload.at,
+  });
 }
 
 function getCurrentUser() {
