@@ -3,6 +3,18 @@ let scalePort = null;
 let scaleReader = null;
 let keepReadingScale = false;
 
+const PREFERRED_SCALE_IDS = [
+    { usbVendorId: 0x0557, usbProductId: 0x2008 }, // ATEN UC232A
+    { usbVendorId: 0x0557, usbProductId: 0x2011 }, // Alternate ATEN variants
+];
+
+const SCALE_SERIAL_OPTIONS = {
+    baudRate: 2400,
+    dataBits: 7,
+    stopBits: 1,
+    parity: 'even',
+};
+
 let currentScannedData = null;
 let currentWeight = 0;
 let lockedWeight = null;
@@ -218,37 +230,17 @@ exportCsvBtn.addEventListener('click', () => {
 });
 
 // --- Web Serial API (Scale) ---
-connectScaleBtn.addEventListener('click', async () => {
-    if ('serial' in navigator) {
-        try {
-            scalePort = await navigator.serial.requestPort();
-            await scalePort.open({
-                baudRate: 2400,
-                dataBits: 7,
-                stopBits: 1,
-                parity: 'even'
-            });
+function isPreferredScalePort(port) {
+    if (!port || typeof port.getInfo !== 'function') return false;
+    const info = port.getInfo() || {};
+    return PREFERRED_SCALE_IDS.some(({ usbVendorId, usbProductId }) => {
+        const vendorMatches = typeof usbVendorId === 'number' ? info.usbVendorId === usbVendorId : true;
+        const productMatches = typeof usbProductId === 'number' ? info.usbProductId === usbProductId : true;
+        return vendorMatches && productMatches;
+    });
+}
 
-            scaleStatus.textContent = 'Connected';
-            scaleStatus.className = 'text-xl font-bold text-green-600';
-            connectScaleBtn.style.display = 'none';
-            disconnectScaleBtn.style.display = 'block';
-
-            keepReadingScale = true;
-            qrInput.focus();
-            readFromScale();
-        } catch (err) {
-            console.error('Error connecting to scale:', err);
-            scaleStatus.textContent = 'Connection Failed';
-            scaleStatus.className = 'text-xl font-bold text-red-600';
-            showStatusMessage(err.message, true);
-        }
-    } else {
-        showStatusMessage('Web Serial API not supported in your browser.', true);
-    }
-});
-
-disconnectScaleBtn.addEventListener('click', async () => {
+async function disconnectScale({ quiet = true } = {}) {
     keepReadingScale = false;
     if (scaleReader) {
         try {
@@ -271,6 +263,87 @@ disconnectScaleBtn.addEventListener('click', async () => {
     scaleStatus.className = 'text-xl font-bold text-red-600';
     connectScaleBtn.style.display = 'block';
     disconnectScaleBtn.style.display = 'none';
+    if (!quiet) {
+        showStatusMessage('Scale disconnected.', false);
+    }
+}
+
+async function beginScaleSession(port) {
+    if (!port) throw new Error('No serial port provided.');
+    await disconnectScale({ quiet: true });
+    try {
+        await port.open(SCALE_SERIAL_OPTIONS);
+        scalePort = port;
+        scaleStatus.textContent = 'Connected';
+        scaleStatus.className = 'text-xl font-bold text-green-600';
+        connectScaleBtn.style.display = 'none';
+        disconnectScaleBtn.style.display = 'block';
+        keepReadingScale = true;
+        qrInput.focus();
+        readFromScale();
+    } catch (err) {
+        scalePort = null;
+        console.error('Error connecting to scale:', err);
+        scaleStatus.textContent = 'Connection Failed';
+        scaleStatus.className = 'text-xl font-bold text-red-600';
+        throw err;
+    }
+}
+
+async function connectPreferredScale({ auto = false } = {}) {
+    if (!('serial' in navigator)) {
+        if (auto) {
+            showStatusMessage('Web Serial API not supported in this browser.', true);
+        } else {
+            showStatusMessage('Web Serial API not supported in your browser.', true);
+        }
+        return;
+    }
+
+    try {
+        const grantedPorts = await navigator.serial.getPorts();
+        let port = grantedPorts.find(isPreferredScalePort);
+
+        if (!port && !auto) {
+            port = await navigator.serial.requestPort({ filters: PREFERRED_SCALE_IDS });
+        }
+
+        if (!port) {
+            if (auto) {
+                showStatusMessage('Preferred scale "ATEN USB to Serial Bridge" not detected or not yet authorised.', true);
+            } else {
+                showStatusMessage('Preferred scale not available. Please ensure the ATEN USB to Serial Bridge is connected and try again.', true);
+            }
+            return;
+        }
+
+        if (!isPreferredScalePort(port)) {
+            showStatusMessage('Selected device is not the ATEN USB to Serial Bridge.', true);
+            return;
+        }
+
+        await beginScaleSession(port);
+        showStatusMessage('Scale connected automatically.', false);
+    } catch (error) {
+        if (error.name === 'NotFoundError') {
+            showStatusMessage('Preferred scale not found. Please connect the ATEN USB to Serial Bridge.', true);
+        } else if (error.name === 'SecurityError') {
+            showStatusMessage('Serial access denied. Please allow permission for the ATEN USB to Serial Bridge.', true);
+        } else if (error.name === 'AbortError') {
+            // User cancelled the selection; no need to show an error.
+        } else {
+            console.error('Error during scale connection:', error);
+            showStatusMessage(error.message || 'Failed to connect to the scale.', true);
+        }
+    }
+}
+
+connectScaleBtn.addEventListener('click', () => {
+    connectPreferredScale({ auto: false });
+});
+
+disconnectScaleBtn.addEventListener('click', () => {
+    disconnectScale({ quiet: false });
 });
 
 async function readFromScale() {
@@ -596,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ensureLoggedIn()) return;
     logoutBtn?.addEventListener('click', handleLogout);
     loadRecords();
+    connectPreferredScale({ auto: true });
 });
 
 function exportAllRecordsAsCsv() {
