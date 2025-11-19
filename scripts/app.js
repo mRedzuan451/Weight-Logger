@@ -76,6 +76,7 @@ let lockedWeight = null;
 let lockedWeightSource = null; // 'auto' or 'manual'
 
 const AUTO_LOCK_THRESHOLD = 0.01; // Minimum change required to refresh auto lock
+const PARTIAL_WEIGHT_TOLERANCE_GRAMS = 5; // Allowable tolerance for partial packets
 const MAX_RECORD_AGE_DAYS = 60;
 const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
 
@@ -288,12 +289,22 @@ function setLockedWeight(weight, source, { showMessage = false } = {}) {
         const baseQty = currentScannedData._partialBaseQty;
         const lockedGrams = toGrams(lockedWeight, unitSelect.value);
         if (baseGrams > 0 && baseQty > 0 && lockedGrams > 0) {
-            const estQty = lockedGrams * (baseQty / baseGrams);
-            if (isFinite(estQty) && estQty > 0) {
-                const rounded = Math.round(estQty);
+            let finalQty;
+
+            // If the current weight is within ±5g of the original full weight, treat as full packet
+            if (Math.abs(lockedGrams - baseGrams) <= PARTIAL_WEIGHT_TOLERANCE_GRAMS) {
+                finalQty = baseQty;
+            } else {
+                const estQty = lockedGrams * (baseQty / baseGrams);
+                if (isFinite(estQty) && estQty > 0) {
+                    finalQty = Math.round(estQty);
+                }
+            }
+
+            if (finalQty && isFinite(finalQty) && finalQty > 0) {
                 currentScannedData = {
                     ...currentScannedData,
-                    quantity: String(rounded),
+                    quantity: String(finalQty),
                 };
                 infoQuantity.textContent = currentScannedData.quantity;
             }
