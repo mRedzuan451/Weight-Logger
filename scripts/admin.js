@@ -14,6 +14,8 @@ const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 function isAdmin(user) {
   if (!user) return false;
+  if (user.role === 'admin') return true;
+  // Legacy fallback for old records
   const name = (user.name || '').trim().toLowerCase();
   const id = (user.employeeId || user.username || '').trim();
   return name === 'admin' && id === '1234';

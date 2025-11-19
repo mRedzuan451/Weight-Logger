@@ -1,6 +1,7 @@
 'use strict';
 
 const LOGIN_HISTORY_KEY = 'login_history';
+const USER_ACCOUNTS_KEY = 'user_accounts';
 const MAX_HISTORY_DAYS = 60;
 const MAX_HISTORY_MS = MAX_HISTORY_DAYS * 24 * 60 * 60 * 1000;
 
@@ -27,6 +28,45 @@ function recordLoginHistory(entry) {
   }
 }
 
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem(USER_ACCOUNTS_KEY);
+    const users = raw ? JSON.parse(raw) : [];
+    return Array.isArray(users) ? users : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUsers(users) {
+  if (!Array.isArray(users)) return;
+  localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
+}
+
+function makePasswordHash(username, password) {
+  // Simple obfuscation, not real security, but better than plain text for this offline tool.
+  try {
+    return btoa(`${username}:${password}`);
+  } catch {
+    return `${username}:${password}`;
+  }
+}
+
+function ensureDefaultAdmin() {
+  let users = loadUsers();
+  const hasAdmin = users.some(u => u && u.username === 'admin');
+  if (!hasAdmin) {
+    users.push({
+      username: 'admin',
+      displayName: 'Administrator',
+      role: 'admin',
+      active: true,
+      passwordHash: makePasswordHash('admin', 'admin123'),
+    });
+    saveUsers(users);
+  }
+}
+
 function getReturnUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -37,24 +77,26 @@ function getReturnUrl() {
 }
 
 function setCurrentUser(user) {
-  const name = (user?.name || '').trim();
-  const employeeId = (user?.employeeId || user?.username || '').trim();
-  const displayName = name && employeeId ? `${name} (${employeeId})` : (name || employeeId);
+  const username = (user?.username || '').trim();
+  const displayName = (user?.displayName || username || '').trim();
+  const role = user?.role || 'user';
 
   const payload = {
-    name,
-    employeeId,
-    username: employeeId, // keep for backward compatibility
+    username,
     displayName,
+    role,
+    // keep legacy fields so older pages using name/employeeId still work
+    name: username,
+    employeeId: username,
     at: new Date().toISOString(),
   };
 
   localStorage.setItem('current_user', JSON.stringify(payload));
 
   recordLoginHistory({
-    name,
-    employeeId,
+    username,
     displayName,
+    role,
     timestamp: payload.at,
   });
 }
@@ -68,40 +110,62 @@ function getCurrentUser() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  ensureDefaultAdmin();
+
   const form = document.getElementById('login-form');
-  const nameInput = document.getElementById('name');
-  const employeeIdInput = document.getElementById('employee-id');
-  const error = document.getElementById('error');
+  if (!form) return;
 
-  // If already logged in, go back to return URL
-  const existing = getCurrentUser();
-  if (existing && (existing.name || existing.username)) {
-    window.location.href = getReturnUrl();
-    return;
-  }
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
 
-  nameInput?.focus();
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    if (!usernameInput || !passwordInput) return;
 
-  form?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = (nameInput?.value || '').trim();
-    const employeeId = (employeeIdInput?.value || '').trim();
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
 
-    if (!name) {
-      error.textContent = 'Please enter your full name.';
-      error.classList.remove('hidden');
-      nameInput?.focus();
+    const error = document.getElementById('error');
+    if (error) {
+      error.classList.add('hidden');
+      error.textContent = '';
+    }
+
+    if (!username || !password) {
+      if (error) {
+        error.textContent = 'Please enter both username and password.';
+        error.classList.remove('hidden');
+      } else {
+        alert('Please enter both username and password.');
+      }
       return;
     }
-    if (!employeeId) {
-      error.textContent = 'Please enter your employee ID.';
-      error.classList.remove('hidden');
-      employeeIdInput?.focus();
+
+    const users = loadUsers();
+    const user = users.find(u => u && u.username === username && u.active !== false);
+    if (!user) {
+      if (error) {
+        error.textContent = 'Invalid username or password.';
+        error.classList.remove('hidden');
+      } else {
+        alert('Invalid username or password.');
+      }
       return;
     }
-    error.classList.add('hidden');
 
-    setCurrentUser({ name, employeeId });
+    const expectedHash = user.passwordHash;
+    const actualHash = makePasswordHash(username, password);
+    if (!expectedHash || expectedHash !== actualHash) {
+      if (error) {
+        error.textContent = 'Invalid username or password.';
+        error.classList.remove('hidden');
+      } else {
+        alert('Invalid username or password.');
+      }
+      return;
+    }
+
+    setCurrentUser({ username: user.username, displayName: user.displayName, role: user.role });
     window.location.href = getReturnUrl();
   });
 });

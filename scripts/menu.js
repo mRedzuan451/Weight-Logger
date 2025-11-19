@@ -20,6 +20,8 @@ function handleLogout() {
 
 function isAdmin(user) {
   if (!user) return false;
+  if (user.role === 'admin') return true;
+  // Legacy fallback for older data
   const name = (user.name || '').trim().toLowerCase();
   const id = (user.employeeId || user.username || '').trim();
   return name === 'admin' && id === '1234';
