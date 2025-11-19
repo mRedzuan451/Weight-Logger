@@ -15,6 +15,19 @@ const SCALE_SERIAL_OPTIONS = {
     parity: 'even',
 };
 
+// Unit conversion helpers (base unit: grams)
+const unitToGramFactor = {
+    g: 1,
+    kg: 1000,
+    lb: 453.59237,
+    oz: 28.349523125,
+};
+
+function toGrams(value, unit) {
+    const f = unitToGramFactor[unit] || 1;
+    return (parseFloat(value) || 0) * f;
+}
+
 let currentScannedData = null;
 let currentWeight = 0;
 let lockedWeight = null;
@@ -74,6 +87,59 @@ function getCurrentUser() {
         return u ? JSON.parse(u) : null;
     } catch {
         return null;
+    }
+}
+
+function applyPartialPacketLogic(scanned) {
+    try {
+        const labelId = (scanned && scanned.labelId) || '';
+        if (!labelId) return scanned;
+
+        const insRaw = localStorage.getItem('weight_records');
+        const outsRaw = localStorage.getItem('stock_out_records');
+        const ins = insRaw ? JSON.parse(insRaw) : [];
+        const outs = outsRaw ? JSON.parse(outsRaw) : [];
+        if (!Array.isArray(ins) || !Array.isArray(outs)) return scanned;
+
+        const inForLabel = ins.filter(r => r && r.labelId === labelId);
+        const outForLabel = outs.filter(r => r && r.labelId === labelId);
+        if (!inForLabel.length || !outForLabel.length) return scanned;
+
+        // There is at least one previous IN and OUT for this label -> label reused
+        const isPartial = window.confirm(
+            `Label ${labelId} was previously stocked out.\n\nOK = Partial packet (estimate quantity from weight)\nCancel = Full packet (use label quantity).`
+        );
+        if (!isPartial) {
+            return scanned;
+        }
+
+        // Use the most recent stock-in for weight/quantity reference
+        inForLabel.sort((a, b) => {
+            const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return tb - ta;
+        });
+        const ref = inForLabel[0];
+        const baseWeight = typeof ref.measuredWeight === 'number' ? ref.measuredWeight : parseFloat(ref.measuredWeight);
+        const baseUnit = ref.unit || 'g';
+        const baseQty = parseFloat(ref.quantity || scanned.quantity);
+
+        const baseWeightGrams = toGrams(baseWeight, baseUnit);
+        if (!baseWeightGrams || !baseQty || !isFinite(baseWeightGrams) || !isFinite(baseQty) || baseWeightGrams <= 0 || baseQty <= 0) {
+            showStatusMessage('Cannot estimate quantity for partial packet (missing previous weight/quantity).', true);
+            return scanned;
+        }
+
+        const clone = { ...scanned };
+        clone._partialBaseWeightGrams = baseWeightGrams;
+        clone._partialBaseQty = baseQty;
+        // Defer quantity calculation until weight is locked
+        clone.quantity = '--';
+        showStatusMessage('Partial packet detected: quantity will be estimated from weight when saving.', false);
+        return clone;
+    } catch (error) {
+        console.error('Error applying partial packet logic:', error);
+        return scanned;
     }
 }
 
@@ -168,6 +234,24 @@ function setLockedWeight(weight, source, { showMessage = false } = {}) {
     lockedWeight = weight;
     lockedWeightSource = normalizedSource;
     updateLockedWeightDisplay();
+
+    // If current scan is a partial packet, estimate and display quantity now
+    if (currentScannedData && currentScannedData._partialBaseWeightGrams && currentScannedData._partialBaseQty) {
+        const baseGrams = currentScannedData._partialBaseWeightGrams;
+        const baseQty = currentScannedData._partialBaseQty;
+        const lockedGrams = toGrams(lockedWeight, unitSelect.value);
+        if (baseGrams > 0 && baseQty > 0 && lockedGrams > 0) {
+            const estQty = lockedGrams * (baseQty / baseGrams);
+            if (isFinite(estQty) && estQty > 0) {
+                const rounded = Math.round(estQty);
+                currentScannedData = {
+                    ...currentScannedData,
+                    quantity: String(rounded),
+                };
+                infoQuantity.textContent = currentScannedData.quantity;
+            }
+        }
+    }
 
     if (showMessage) {
         const message = normalizedSource === 'auto'
@@ -450,7 +534,8 @@ function handleQrData(data) {
     };
 
     if (!raw.startsWith('{')) {
-        assignScannedData(fallbackData, 'Barcode scanned (non-JSON format).');
+        const adjusted = applyPartialPacketLogic(fallbackData);
+        assignScannedData(adjusted, 'Barcode scanned (non-JSON format).');
         return;
     }
 
@@ -469,7 +554,7 @@ function handleQrData(data) {
                 }
             }
 
-            assignScannedData({
+            const baseScanned = {
                 labelId: parsedData.id,
                 itemId: parsedData.item,
                 itemName: parsedData.name,
@@ -477,7 +562,10 @@ function handleQrData(data) {
                 manufacturingLot: parsedData.mfglot,
                 quantity: quantity,
                 originalQrData: parsedData
-            }, 'QR Code scanned successfully!');
+            };
+
+            const adjusted = applyPartialPacketLogic(baseScanned);
+            assignScannedData(adjusted, 'QR Code scanned successfully!');
         } else {
             throw new Error("Invalid JSON structure in QR code. Missing 'id', 'item', or 'name'.");
         }
@@ -513,8 +601,10 @@ saveRecordBtn.addEventListener('click', async () => {
             window.location.href = `login.html?return=${ret}`;
             return;
         }
+        const { _partialBaseWeightGrams, _partialBaseQty, ...cleanScanned } = currentScannedData || {};
+
         const record = {
-            ...currentScannedData,
+            ...cleanScanned,
             measuredWeight: lockedWeight,
             unit: unitSelect.value,
             timestamp: new Date().toISOString(),
