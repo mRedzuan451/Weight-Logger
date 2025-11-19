@@ -292,11 +292,7 @@ async function beginScaleSession(port) {
 
 async function connectPreferredScale({ auto = false } = {}) {
     if (!('serial' in navigator)) {
-        if (auto) {
-            showStatusMessage('Web Serial API not supported in this browser.', true);
-        } else {
-            showStatusMessage('Web Serial API not supported in your browser.', true);
-        }
+        showStatusMessage('Web Serial API not supported in this browser.', true);
         return;
     }
 
@@ -304,26 +300,30 @@ async function connectPreferredScale({ auto = false } = {}) {
         const grantedPorts = await navigator.serial.getPorts();
         let port = grantedPorts.find(isPreferredScalePort);
 
-        if (!port && !auto) {
-            port = await navigator.serial.requestPort({ filters: PREFERRED_SCALE_IDS });
-        }
-
         if (!port) {
             if (auto) {
-                showStatusMessage('Preferred scale "ATEN USB to Serial Bridge" not detected or not yet authorised.', true);
-            } else {
-                showStatusMessage('Preferred scale not available. Please ensure the ATEN USB to Serial Bridge is connected and try again.', true);
+                // On auto-connect, we are not allowed to show the chooser without a user gesture.
+                // Just update status and tell the user to click Connect Scale.
+                scaleStatus.textContent = 'Not Connected';
+                scaleStatus.className = 'text-xl font-bold text-red-600';
+                connectScaleBtn.style.display = 'block';
+                disconnectScaleBtn.style.display = 'none';
+                showStatusMessage('Scale not yet authorised. Click "Connect Scale" and choose the ATEN USB to Serial Bridge.', true);
+                return;
             }
-            return;
+
+            // Manual connect: open the chooser without strict filters so the
+            // user can pick their ATEN bridge or compatible serial adapter.
+            port = await navigator.serial.requestPort();
         }
 
+        // Prefer ATEN, but still allow other serial devices if the user chose them.
         if (!isPreferredScalePort(port)) {
-            showStatusMessage('Selected device is not the ATEN USB to Serial Bridge.', true);
-            return;
+            showStatusMessage('Connected to a serial device (not recognised as ATEN). If weights look wrong, re-connect and pick the ATEN USB to Serial Bridge.', false);
         }
 
         await beginScaleSession(port);
-        showStatusMessage('Scale connected automatically.', false);
+        showStatusMessage(auto ? 'Scale connected automatically.' : 'Scale connected.', false);
     } catch (error) {
         if (error.name === 'NotFoundError') {
             showStatusMessage('Preferred scale not found. Please connect the ATEN USB to Serial Bridge.', true);
