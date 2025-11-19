@@ -34,7 +34,7 @@ function ensureLoggedIn() {
 function showEmpty(message) {
   recordsBody.innerHTML = `
     <tr>
-      <td colspan="8" class="py-6 text-center text-gray-500">${message}</td>
+      <td colspan="9" class="py-6 text-center text-gray-500">${message}</td>
     </tr>`;
 }
 
@@ -92,6 +92,7 @@ function renderPage() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.itemId || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.lotNo || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.manufacturingLot || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.quantity || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.responsibleUser || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${status}</td>
     `;
@@ -125,7 +126,7 @@ exportCsvBtn.addEventListener('click', () => {
     return;
   }
 
-  const headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Responsible', 'Status'];
+  const headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Quantity', 'Responsible', 'Status'];
   const rows = allRecords.map(record => [
     record.timestamp ? new Date(record.timestamp).toISOString() : '',
     record.labelId || '',
@@ -133,6 +134,7 @@ exportCsvBtn.addEventListener('click', () => {
     record.itemId || '',
     record.lotNo || '',
     record.manufacturingLot || '',
+    record.quantity || '',
     record.responsibleUser || '',
     (record.status || 'OUT').toUpperCase()
   ]);
