@@ -26,6 +26,12 @@ function ensureAdmin() {
     redirectToLogin();
     return false;
   }
+  // Prefer new role-based flag
+  if (user.role === 'admin') {
+    return true;
+  }
+
+  // Legacy fallback for very old login records
   const name = (user.name || '').trim().toLowerCase();
   const id = (user.employeeId || user.username || '').trim();
   if (name !== 'admin' || id !== '1234') {
