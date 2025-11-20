@@ -37,6 +37,7 @@ const logoutBtn = document.getElementById('logout-btn');
 const tableBody = document.getElementById('stocktake-table-body');
 const exportBtn = document.getElementById('stocktake-export-btn');
 const applyBtn = document.getElementById('stocktake-apply-btn');
+const printBtn = document.getElementById('stocktake-print-btn');
 
 let stockItems = [];
 
@@ -727,6 +728,7 @@ disconnectScaleBtn.addEventListener('click', () => {
 
 exportBtn?.addEventListener('click', exportStockTakeCsv);
 applyBtn?.addEventListener('click', applyStockTakeUpdates);
+printBtn?.addEventListener('click', printStockTakeReport);
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
@@ -742,4 +744,174 @@ function escapeCsv(value) {
     return '"' + stringValue.replace(/"/g, '""') + '"';
   }
   return stringValue;
+}
+
+function printStockTakeReport() {
+  try {
+    if (!stockItems.length) {
+      alert('No in-stock items to print.');
+      return;
+    }
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString();
+
+    const rowsHtml = stockItems.map((item, index) => {
+      const expectedQtyText = typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
+        ? item.expectedQty.toFixed(0)
+        : '';
+      const actualQtyText = typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
+        ? item.actualQty.toFixed(0)
+        : '';
+      const expectedWeightText = typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)
+        ? `${item.expectedWeight.toFixed(2)} ${item.unit}`
+        : '';
+      const actualWeightText = typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)
+        ? `${item.actualWeight.toFixed(2)} g`
+        : '';
+      const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
+        ? `${item.diff.toFixed(2)} g`
+        : '';
+
+      return `
+        <tr>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:center;">${index + 1}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${item.labelId || ''}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${item.itemName || ''}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedQtyText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedWeightText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualQtyText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualWeightText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    let totalExpectedQty = 0;
+    let totalActualQty = 0;
+    let totalExpectedWeight = 0;
+    let totalActualWeight = 0;
+    for (const item of stockItems) {
+      if (typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)) {
+        totalExpectedQty += item.expectedQty;
+      }
+      if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
+        totalActualQty += item.actualQty;
+      }
+      if (typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)) {
+        totalExpectedWeight += item.expectedWeight;
+      }
+      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
+        totalActualWeight += item.actualWeight;
+      }
+    }
+
+    const totalsHtml = `
+      <tr style="background-color:#f9fafb; font-weight:600;">
+        <td colspan="3" style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt;">Total</td>
+        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalExpectedQty.toFixed(0)} pcs</td>
+        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalExpectedWeight.toFixed(2)} g</td>
+        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalActualQty.toFixed(0)} pcs</td>
+        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalActualWeight.toFixed(2)} g</td>
+        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;"></td>
+      </tr>
+    `;
+
+    const signatureHtml = `
+      <div style="margin-bottom:16px; display:flex; justify-content:flex-end;">
+        <div style="display:flex;">
+          <div style="width:120px; text-align:center;">
+            <div style="border:1px solid #111827; height:80px;"></div>
+            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Issue</div>
+          </div>
+          <div style="width:120px; text-align:center;">
+            <div style="border:1px solid #111827; height:80px; border-left:none;"></div>
+            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Confirm</div>
+          </div>
+          <div style="width:120px; text-align:center;">
+            <div style="border:1px solid #111827; height:80px; border-left:none;"></div>
+            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Approved</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Stock Take Report</title>
+        <style>
+          @page { size: A4; margin: 16mm; }
+          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11pt; color: #111827; }
+          h1 { font-size: 18pt; margin: 0 0 4px 0; }
+          .subhead { font-size: 10pt; color: #4b5563; margin-bottom: 12px; }
+          table { width: 100%; border-collapse: collapse; }
+          th { background: #f3f4f6; font-size: 10pt; text-align: left; padding: 4px 8px; border: 1px solid #e5e7eb; }
+        </style>
+      </head>
+      <body>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
+          <div>
+            <h1>Stock Take Report</h1>
+            <div class="subhead">Generated on ${dateStr} at ${timeStr}</div>
+          </div>
+        </div>
+        ${signatureHtml}
+        <table>
+          <thead>
+            <tr>
+              <th style="width:24px; text-align:center;">No</th>
+              <th>Label ID</th>
+              <th>Item Name</th>
+              <th style="text-align:right;">Expected Qty</th>
+              <th style="text-align:right;">Expected Weight</th>
+              <th style="text-align:right;">Actual Qty</th>
+              <th style="text-align:right;">Actual Weight</th>
+              <th style="text-align:right;">Difference</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            ${totalsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      alert('Failed to access print frame.');
+      document.body.removeChild(iframe);
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 500);
+      }
+    };
+  } catch (err) {
+    console.error('Error generating stock take print report:', err);
+    alert('Failed to generate print report. See console for details.');
+  }
 }
