@@ -35,6 +35,7 @@ const statusBox = document.getElementById('stocktake-status');
 const logoutBtn = document.getElementById('logout-btn');
 const tableBody = document.getElementById('stocktake-table-body');
 const exportBtn = document.getElementById('stocktake-export-btn');
+const applyBtn = document.getElementById('stocktake-apply-btn');
 
 let stockItems = [];
 
@@ -44,6 +45,81 @@ function getCurrentUser() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function applyStockTakeUpdates() {
+  try {
+    if (!stockItems.length) {
+      alert('No in-stock items to update.');
+      return;
+    }
+
+    // Only consider labels where we have an actual measured weight
+    const updatedLabels = new Map();
+    for (const item of stockItems) {
+      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
+        updatedLabels.set(item.labelId, item.actualWeight);
+      }
+    }
+
+    if (!updatedLabels.size) {
+      alert('No items have an actual weight recorded to update.');
+      return;
+    }
+
+    if (!confirm('Apply the actual weights to the latest stock-in records and reset stock-take status?')) {
+      return;
+    }
+
+    const insRaw = localStorage.getItem('weight_records');
+    let ins = insRaw ? JSON.parse(insRaw) : [];
+    if (!Array.isArray(ins)) ins = [];
+
+    // Find latest IN record index per label for labels we are updating
+    const latestIndexByLabel = new Map();
+    for (let i = 0; i < ins.length; i++) {
+      const r = ins[i];
+      if (!r || !r.labelId) continue;
+      if (!updatedLabels.has(r.labelId)) continue;
+      const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
+      const existingIndex = latestIndexByLabel.get(r.labelId);
+      if (existingIndex === undefined) {
+        latestIndexByLabel.set(r.labelId, i);
+      } else {
+        const existing = ins[existingIndex];
+        const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
+        if (t > existingT) {
+          latestIndexByLabel.set(r.labelId, i);
+        }
+      }
+    }
+
+    if (!latestIndexByLabel.size) {
+      alert('No matching stock-in records found to update.');
+      return;
+    }
+
+    // Apply new weights (stored in grams) to the latest IN records
+    latestIndexByLabel.forEach((index, labelId) => {
+      const rec = ins[index];
+      const newWeight = updatedLabels.get(labelId);
+      if (!rec || typeof newWeight !== 'number' || Number.isNaN(newWeight)) return;
+      rec.measuredWeight = newWeight;
+      rec.unit = 'g';
+    });
+
+    localStorage.setItem('weight_records', JSON.stringify(ins));
+
+    // Clear saved stock-take state so everything resets to "Not checked"
+    localStorage.removeItem(STOCK_TAKE_STATE_KEY);
+
+    showStatus('Stock take updates applied. List reloaded with new weights.', false);
+    resetInfo();
+    loadInStockItems();
+  } catch (err) {
+    console.error('Error applying stock take updates:', err);
+    alert('Failed to apply stock take updates. See console for details.');
   }
 }
 
@@ -552,6 +628,7 @@ disconnectScaleBtn.addEventListener('click', () => {
 });
 
 exportBtn?.addEventListener('click', exportStockTakeCsv);
+applyBtn?.addEventListener('click', applyStockTakeUpdates);
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
