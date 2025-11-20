@@ -17,6 +17,7 @@ let scaleReader = null;
 let keepReadingScale = false;
 let currentWeight = 0;
 const STOCK_TAKE_TOLERANCE_GRAMS = 5; // allowable +/- 5g difference
+const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 
 const connectScaleBtn = document.getElementById('connect-scale-btn');
 const disconnectScaleBtn = document.getElementById('disconnect-scale-btn');
@@ -33,6 +34,7 @@ const infoDiff = document.getElementById('info-diff');
 const statusBox = document.getElementById('stocktake-status');
 const logoutBtn = document.getElementById('logout-btn');
 const tableBody = document.getElementById('stocktake-table-body');
+const exportBtn = document.getElementById('stocktake-export-btn');
 
 let stockItems = [];
 
@@ -42,6 +44,63 @@ function getCurrentUser() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function exportStockTakeCsv() {
+  try {
+    if (!stockItems.length) {
+      alert('No in-stock items to export.');
+      return;
+    }
+
+    const headers = [
+      'Label ID',
+      'Item Name',
+      'Status',
+      'Expected Weight',
+      'Actual Weight',
+      'Difference',
+      'Stock Take Status',
+    ];
+
+    const rows = stockItems.map(item => {
+      const expectedText = item.expectedWeight && !Number.isNaN(item.expectedWeight)
+        ? `${Number(item.expectedWeight).toFixed(2)} ${item.unit}`
+        : '';
+      const actualText = typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)
+        ? item.actualWeight.toFixed(2)
+        : '';
+      const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
+        ? item.diff.toFixed(2)
+        : '';
+      return [
+        item.labelId || '',
+        item.itemName || '',
+        item.status || '',
+        expectedText,
+        actualText,
+        diffText,
+        item.stockTakeStatus || '',
+      ];
+    });
+
+    const csv = [headers, ...rows]
+      .map(row => row.map(escapeCsv).join(','))
+      .join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stock-take-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Error exporting stock take CSV:', err);
+    alert('Failed to export CSV. See console for details.');
   }
 }
 
@@ -105,7 +164,43 @@ function loadInStockItems() {
     console.error('Error loading in-stock items for stock take:', err);
   }
 
+  // Merge any previously saved stock-take state (so checked items remain marked)
+  try {
+    const savedRaw = localStorage.getItem(STOCK_TAKE_STATE_KEY);
+    const saved = savedRaw ? JSON.parse(savedRaw) : {};
+    if (saved && typeof saved === 'object') {
+      stockItems = stockItems.map(item => {
+        const state = saved[item.labelId];
+        if (!state) return item;
+        return {
+          ...item,
+          actualWeight: typeof state.actualWeight === 'number' ? state.actualWeight : item.actualWeight,
+          diff: typeof state.diff === 'number' ? state.diff : item.diff,
+          stockTakeStatus: state.stockTakeStatus || item.stockTakeStatus,
+        };
+      });
+    }
+  } catch (err) {
+    console.error('Error restoring stock take state:', err);
+  }
+
   renderStockTable();
+}
+
+function saveStockTakeState() {
+  try {
+    const payload = {};
+    for (const item of stockItems) {
+      payload[item.labelId] = {
+        actualWeight: typeof item.actualWeight === 'number' ? item.actualWeight : null,
+        diff: typeof item.diff === 'number' ? item.diff : null,
+        stockTakeStatus: item.stockTakeStatus,
+      };
+    }
+    localStorage.setItem(STOCK_TAKE_STATE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.error('Error saving stock take state:', err);
+  }
 }
 
 function renderStockTable() {
@@ -351,6 +446,7 @@ function updateStockTakeRow(expected, diff, withinTolerance) {
   }
 
   renderStockTable();
+  saveStockTakeState();
 }
 
 function parseExpectedFromRecords(labelId) {
@@ -455,10 +551,20 @@ disconnectScaleBtn.addEventListener('click', () => {
   disconnectScale({ quiet: false });
 });
 
+exportBtn?.addEventListener('click', exportStockTakeCsv);
+
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
   logoutBtn?.addEventListener('click', handleLogout);
   resetInfo();
-   loadInStockItems();
+  loadInStockItems();
   qrInput.focus();
 });
+
+function escapeCsv(value) {
+  const stringValue = String(value ?? '');
+  if (/[",\n]/.test(stringValue)) {
+    return '"' + stringValue.replace(/"/g, '""') + '"';
+  }
+  return stringValue;
+}
