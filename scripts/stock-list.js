@@ -64,6 +64,7 @@ function renderFilteredAndSorted() {
   }
 
   let totalQty = 0;
+  let totalWeight = 0;
   for (const row of rows) {
     const tr = document.createElement('tr');
     const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
@@ -85,6 +86,11 @@ function renderFilteredAndSorted() {
     if (!Number.isNaN(q)) {
       totalQty += q;
     }
+
+    const w = parseFloat(row.expectedWeight);
+    if (!Number.isNaN(w)) {
+      totalWeight += w;
+    }
   }
 
   const totalTr = document.createElement('tr');
@@ -92,7 +98,7 @@ function renderFilteredAndSorted() {
   totalTr.innerHTML = `
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="5">Total</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQty.toFixed(0)} pcs</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeight.toFixed(2)} g</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
   `;
   bodyEl.appendChild(totalTr);
