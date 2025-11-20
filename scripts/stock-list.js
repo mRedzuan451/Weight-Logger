@@ -10,6 +10,15 @@ let currentSort = { key: 'labelId', direction: 'asc' };
 let headerCells = [];
 const sortKeys = ['labelId', 'itemName', 'itemId', 'lotNo', 'manufacturingLot', 'quantity', 'expectedWeight', 'unit'];
 
+function formatNumber(value, decimals = 2) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return '';
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 function getCurrentUser() {
   try {
     const raw = localStorage.getItem('current_user');
@@ -68,7 +77,7 @@ function renderFilteredAndSorted() {
   for (const row of rows) {
     const tr = document.createElement('tr');
     const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
-      ? `${Number(row.expectedWeight).toFixed(2)} ${row.unit}`
+      ? `${formatNumber(row.expectedWeight, 2)} ${row.unit}`
       : '--';
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.labelId}</td>
@@ -97,8 +106,8 @@ function renderFilteredAndSorted() {
   totalTr.className = 'bg-gray-50';
   totalTr.innerHTML = `
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="5">Total</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQty.toFixed(0)} pcs</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalQty, 0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalWeight, 2)} ${rows.length > 0 ? rows[0].unit : ''}</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
   `;
   bodyEl.appendChild(totalTr);

@@ -40,6 +40,18 @@ const applyBtn = document.getElementById('stocktake-apply-btn');
 const printBtn = document.getElementById('stocktake-print-btn');
 
 let stockItems = [];
+let stockTakeSort = { key: 'labelId', direction: 'asc' };
+let stockTakeHeaderCells = [];
+const stockTakeSortKeys = ['labelId', 'itemName', 'expectedQty', 'expectedWeight', 'actualQty', 'actualWeight', 'diff'];
+
+function formatNumber(value, decimals = 2) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return '';
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
 
 function getCurrentUser() {
   try {
@@ -182,23 +194,23 @@ function exportStockTakeCsv() {
 
     const rows = stockItems.map(item => {
       const expectedText = item.expectedWeight && !Number.isNaN(item.expectedWeight)
-        ? `${Number(item.expectedWeight).toFixed(2)} ${item.unit}`
+        ? `${formatNumber(item.expectedWeight, 2)} ${item.unit}`
         : '';
       const actualText = typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)
-        ? item.actualWeight.toFixed(2)
+        ? formatNumber(item.actualWeight, 2)
         : '';
       const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
-        ? item.diff.toFixed(2)
+        ? formatNumber(item.diff, 2)
         : '';
       return [
         item.labelId || '',
         item.itemName || '',
         typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
-          ? item.expectedQty.toFixed(0)
+          ? formatNumber(item.expectedQty, 0)
           : '',
         expectedText,
         typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
-          ? item.actualQty.toFixed(0)
+          ? formatNumber(item.actualQty, 0)
           : '',
         actualText,
         diffText,
@@ -343,22 +355,42 @@ function renderStockTable() {
   let totalExpectedWeight = 0;
   let totalActualWeight = 0;
 
-  for (const item of stockItems) {
+  const items = stockItems.slice();
+  const { key, direction } = stockTakeSort;
+  if (key) {
+    items.sort((a, b) => {
+      const av = a[key];
+      const bv = b[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return direction === 'asc' ? -1 : 1;
+      if (bv == null) return direction === 'asc' ? 1 : -1;
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return direction === 'asc' ? av - bv : bv - av;
+      }
+      const as = String(av).toLowerCase();
+      const bs = String(bv).toLowerCase();
+      if (as < bs) return direction === 'asc' ? -1 : 1;
+      if (as > bs) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  for (const item of items) {
     const tr = document.createElement('tr');
     const expectedText = item.expectedWeight && !Number.isNaN(item.expectedWeight)
-      ? `${Number(item.expectedWeight).toFixed(2)} ${item.unit}`
+      ? `${formatNumber(item.expectedWeight, 2)} ${item.unit}`
       : '--';
     const actualText = typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)
-      ? `${item.actualWeight.toFixed(2)} g`
+      ? `${formatNumber(item.actualWeight, 2)} g`
       : '--';
     const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
-      ? `${item.diff.toFixed(2)} g`
+      ? `${formatNumber(item.diff, 2)} g`
       : '--';
     const expectedQtyText = typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
-      ? `${item.expectedQty.toFixed(0)} pcs`
+      ? `${formatNumber(item.expectedQty, 0)} pcs`
       : '--';
     const actualQtyText = typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
-      ? `${item.actualQty.toFixed(0)} pcs`
+      ? `${formatNumber(item.actualQty, 0)} pcs`
       : '--';
 
     tr.innerHTML = `
@@ -390,13 +422,41 @@ function renderStockTable() {
   totalTr.className = 'bg-gray-50';
   totalTr.innerHTML = `
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="2">Total</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalExpectedQty.toFixed(0)} pcs</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalExpectedWeight.toFixed(2)} g</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalActualQty.toFixed(0)} pcs</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalActualWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalExpectedQty, 0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalExpectedWeight, 2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalActualQty, 0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalActualWeight, 2)} g</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
   `;
   tableBody.appendChild(totalTr);
+}
+
+function setStockTakeSort(key) {
+  if (stockTakeSort.key === key) {
+    stockTakeSort.direction = stockTakeSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    stockTakeSort = { key, direction: 'asc' };
+  }
+  updateStockTakeSortIndicators();
+  renderStockTable();
+}
+
+function updateStockTakeSortIndicators() {
+  if (!stockTakeHeaderCells || !stockTakeHeaderCells.length) return;
+  stockTakeHeaderCells.forEach((th, index) => {
+    const key = stockTakeSortKeys[index];
+    if (!key) return;
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/[▲▼]/g, '').trim();
+    th.dataset.baseLabel = baseLabel;
+
+    if (key === stockTakeSort.key) {
+      const arrow = stockTakeSort.direction === 'asc' ? '▲' : '▼';
+      th.textContent = baseLabel + ' ' + arrow;
+    } else {
+      th.textContent = baseLabel;
+    }
+    th.classList.add('cursor-pointer', 'select-none');
+  });
 }
 
 function redirectToLogin() {
@@ -537,7 +597,7 @@ function handleScaleLine(data) {
   }
   if (!Number.isNaN(w)) {
     currentWeight = w;
-    infoActual.textContent = `${w.toFixed(2)} g`;
+    infoActual.textContent = `${formatNumber(w, 2)} g`;
     updateDiff();
   }
 }
@@ -565,7 +625,7 @@ function updateDiff() {
   }
   const diff = currentWeight - expected;
   const withinTolerance = Math.abs(diff) <= STOCK_TAKE_TOLERANCE_GRAMS;
-  infoDiff.textContent = `${diff.toFixed(2)} g${withinTolerance ? ' (within 5g)' : ''}`;
+  infoDiff.textContent = `${formatNumber(diff, 2)} g${withinTolerance ? ' (within 5g)' : ''}`;
   // Use text color to indicate out-of-tolerance differences
   infoDiff.className = 'font-mono float-right ' + (withinTolerance ? 'text-green-700' : 'text-red-700');
 
@@ -702,7 +762,7 @@ function handleScan(raw) {
   infoStatus.textContent = data.status;
 
   if (data.expectedWeight && !Number.isNaN(data.expectedWeight)) {
-    infoExpected.textContent = `${Number(data.expectedWeight).toFixed(2)} ${data.unit}`;
+    infoExpected.textContent = `${formatNumber(data.expectedWeight, 2)} ${data.unit}`;
   } else {
     infoExpected.textContent = '--';
   }
@@ -736,6 +796,19 @@ window.addEventListener('DOMContentLoaded', () => {
   resetInfo();
   loadInStockItems();
   qrInput.focus();
+
+  if (tableBody) {
+    const headerRow = tableBody.parentElement?.previousElementSibling?.querySelector('tr');
+    if (headerRow) {
+      stockTakeHeaderCells = Array.from(headerRow.querySelectorAll('th'));
+      stockTakeHeaderCells.forEach((th, index) => {
+        const key = stockTakeSortKeys[index];
+        if (!key) return;
+        th.addEventListener('click', () => setStockTakeSort(key));
+      });
+      updateStockTakeSortIndicators();
+    }
+  }
 });
 
 function escapeCsv(value) {
