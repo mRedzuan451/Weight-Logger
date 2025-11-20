@@ -337,6 +337,11 @@ function renderStockTable() {
     return;
   }
 
+  let totalExpectedQty = 0;
+  let totalActualQty = 0;
+  let totalExpectedWeight = 0;
+  let totalActualWeight = 0;
+
   for (const item of stockItems) {
     const tr = document.createElement('tr');
     const expectedText = item.expectedWeight && !Number.isNaN(item.expectedWeight)
@@ -365,7 +370,32 @@ function renderStockTable() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${diffText}</td>
     `;
     tableBody.appendChild(tr);
+
+    if (typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)) {
+      totalExpectedQty += item.expectedQty;
+    }
+    if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
+      totalActualQty += item.actualQty;
+    }
+    if (typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)) {
+      totalExpectedWeight += item.expectedWeight;
+    }
+    if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
+      totalActualWeight += item.actualWeight;
+    }
   }
+
+  const totalTr = document.createElement('tr');
+  totalTr.className = 'bg-gray-50';
+  totalTr.innerHTML = `
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="2">Total</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalExpectedQty.toFixed(0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalExpectedWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalActualQty.toFixed(0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalActualWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+  `;
+  tableBody.appendChild(totalTr);
 }
 
 function redirectToLogin() {
