@@ -63,6 +63,7 @@ function renderFilteredAndSorted() {
     return;
   }
 
+  let totalQty = 0;
   for (const row of rows) {
     const tr = document.createElement('tr');
     const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
@@ -79,7 +80,22 @@ function renderFilteredAndSorted() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.unit}</td>
     `;
     bodyEl.appendChild(tr);
+
+    const q = parseFloat(row.quantity);
+    if (!Number.isNaN(q)) {
+      totalQty += q;
+    }
   }
+
+  const totalTr = document.createElement('tr');
+  totalTr.className = 'bg-gray-50';
+  totalTr.innerHTML = `
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="5">Total</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQty.toFixed(0)} pcs</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+  `;
+  bodyEl.appendChild(totalTr);
 }
 
 function setSort(key) {
