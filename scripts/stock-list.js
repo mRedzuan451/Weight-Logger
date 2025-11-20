@@ -3,6 +3,12 @@
 const bodyEl = document.getElementById('stocklist-body');
 const statusBox = document.getElementById('stocklist-status');
 const logoutBtn = document.getElementById('logout-btn');
+const searchInput = document.getElementById('stocklist-search');
+
+let allRows = [];
+let currentSort = { key: 'labelId', direction: 'asc' };
+let headerCells = [];
+const sortKeys = ['labelId', 'itemName', 'itemId', 'lotNo', 'manufacturingLot', 'quantity', 'expectedWeight', 'unit'];
 
 function getCurrentUser() {
   try {
@@ -11,6 +17,97 @@ function getCurrentUser() {
   } catch {
     return null;
   }
+}
+
+function renderFilteredAndSorted() {
+  if (!bodyEl) return;
+
+  const query = (searchInput?.value || '').trim().toLowerCase();
+
+  let rows = allRows.slice();
+  if (query) {
+    rows = rows.filter(r => {
+      return (
+        String(r.labelId || '').toLowerCase().includes(query) ||
+        String(r.itemName || '').toLowerCase().includes(query) ||
+        String(r.itemId || '').toLowerCase().includes(query) ||
+        String(r.lotNo || '').toLowerCase().includes(query) ||
+        String(r.manufacturingLot || '').toLowerCase().includes(query)
+      );
+    });
+  }
+
+  const { key, direction } = currentSort;
+  rows.sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+
+    if (av == null && bv == null) return 0;
+    if (av == null) return direction === 'asc' ? -1 : 1;
+    if (bv == null) return direction === 'asc' ? 1 : -1;
+
+    if (typeof av === 'number' && typeof bv === 'number') {
+      return direction === 'asc' ? av - bv : bv - av;
+    }
+
+    const as = String(av).toLowerCase();
+    const bs = String(bv).toLowerCase();
+    if (as < bs) return direction === 'asc' ? -1 : 1;
+    if (as > bs) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  bodyEl.innerHTML = '';
+  if (!rows.length) {
+    bodyEl.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No current stock found.</td></tr>';
+    return;
+  }
+
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
+      ? `${Number(row.expectedWeight).toFixed(2)} ${row.unit}`
+      : '--';
+    tr.innerHTML = `
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.labelId}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemName}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemId}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.lotNo}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.manufacturingLot}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.quantity}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedText}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.unit}</td>
+    `;
+    bodyEl.appendChild(tr);
+  }
+}
+
+function setSort(key) {
+  if (currentSort.key === key) {
+    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort = { key, direction: 'asc' };
+  }
+  updateSortIndicators();
+  renderFilteredAndSorted();
+}
+
+function updateSortIndicators() {
+  if (!headerCells || !headerCells.length) return;
+  headerCells.forEach((th, index) => {
+    const key = sortKeys[index];
+    if (!key) return;
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/[▲▼]/g, '').trim();
+    th.dataset.baseLabel = baseLabel;
+
+    if (key === currentSort.key) {
+      const arrow = currentSort.direction === 'asc' ? '▲' : '▼';
+      th.textContent = baseLabel + ' ' + arrow;
+    } else {
+      th.textContent = baseLabel;
+    }
+    th.classList.add('cursor-pointer', 'select-none');
+  });
 }
 
 function redirectToLogin() {
@@ -105,30 +202,8 @@ function loadStockList() {
       });
     });
 
-    bodyEl.innerHTML = '';
-    if (!rows.length) {
-      bodyEl.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No current stock found.</td></tr>';
-      return;
-    }
-
-    for (const row of rows) {
-      const tr = document.createElement('tr');
-      const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
-        ? `${Number(row.expectedWeight).toFixed(2)} ${row.unit}`
-        : '--';
-      tr.innerHTML = `
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.labelId}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemName}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemId}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.lotNo}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.manufacturingLot}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.quantity}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedText}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.unit}</td>
-      `;
-      bodyEl.appendChild(tr);
-    }
-
+    allRows = rows;
+    renderFilteredAndSorted();
     showStatus('Current stock loaded.', false);
   } catch (err) {
     console.error('Error loading stock list:', err);
@@ -139,5 +214,21 @@ function loadStockList() {
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
   logoutBtn?.addEventListener('click', handleLogout);
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      renderFilteredAndSorted();
+    });
+  }
+
+  headerCells = Array.from(document.querySelectorAll('thead tr th'));
+  if (headerCells && headerCells.length) {
+    headerCells.forEach((th, index) => {
+      const key = sortKeys[index];
+      if (!key) return;
+      th.addEventListener('click', () => setSort(key));
+    });
+    updateSortIndicators();
+  }
+
   loadStockList();
 });

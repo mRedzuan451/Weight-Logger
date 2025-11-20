@@ -166,6 +166,24 @@ function setHeaderForStockTake() {
   `;
 }
 
+function setView(view) {
+  currentView = view === 'stocktake' ? 'stocktake' : 'movement';
+  if (currentView === 'stocktake') {
+    setHeaderForStockTake();
+  } else {
+    setHeaderForMovement();
+  }
+
+  const fromDateEl = document.getElementById('from-date');
+  const toDateEl = document.getElementById('to-date');
+  if ((fromDateEl && fromDateEl.value) || (toDateEl && toDateEl.value)) {
+    applyFilter();
+  } else {
+    const records = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+    render(records);
+  }
+}
+
 function render(records) {
   const tbody = document.getElementById('admin-records-body');
   statusMessage('');
@@ -360,53 +378,10 @@ window.addEventListener('DOMContentLoaded', () => {
     render(loadCombinedRecords());
   });
   document.getElementById('export-csv')?.addEventListener('click', exportCsv);
-  document.getElementById('export-csv')?.addEventListener('click', exportCsv);
+  document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
   document.getElementById('view-movement-btn')?.addEventListener('click', () => setView('movement'));
   document.getElementById('view-stocktake-btn')?.addEventListener('click', () => setView('stocktake'));
 
   setHeaderForMovement();
   render(loadCombinedRecords());
 });
-
-function setView(view) {
-  currentView = view;
-  if (view === 'stocktake') {
-    setHeaderForStocktake();
-    render(loadStockTakeHistory());
-  } else {
-    setHeaderForMovement();
-    render(loadCombinedRecords());
-  }
-}
-
-function setHeaderForMovement() {
-  const thead = document.getElementById('admin-records-head');
-  thead.innerHTML = `
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Manufacturing Lot</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unit</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
-  `;
-}
-
-function setHeaderForStocktake() {
-  const thead = document.getElementById('admin-records-head');
-  thead.innerHTML = `
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Manufacturing Lot</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight Before</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight After</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Difference</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
-  `;
-}
