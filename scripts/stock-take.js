@@ -172,11 +172,11 @@ function exportStockTakeCsv() {
     const headers = [
       'Label ID',
       'Item Name',
-      'Status',
+      'Expected Qty',
       'Expected Weight',
+      'Actual Qty',
       'Actual Weight',
       'Difference',
-      'Stock Take Status',
     ];
 
     const rows = stockItems.map(item => {
@@ -192,11 +192,15 @@ function exportStockTakeCsv() {
       return [
         item.labelId || '',
         item.itemName || '',
-        item.status || '',
+        typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
+          ? item.expectedQty.toFixed(0)
+          : '',
         expectedText,
+        typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
+          ? item.actualQty.toFixed(0)
+          : '',
         actualText,
         diffText,
-        item.stockTakeStatus || '',
       ];
     });
 
@@ -263,13 +267,18 @@ function loadInStockItems() {
 
       const measured = typeof inRec.measuredWeight === 'number' ? inRec.measuredWeight : parseFloat(inRec.measuredWeight);
       const unit = inRec.unit || 'g';
+      const expectedQty = typeof inRec.quantity === 'number'
+        ? inRec.quantity
+        : parseFloat(inRec.quantity);
 
       stockItems.push({
         labelId,
         itemName: inRec.itemName || '--',
         status,
+        expectedQty: !Number.isNaN(expectedQty) ? expectedQty : null,
         expectedWeight: measured,
         unit,
+        actualQty: !Number.isNaN(expectedQty) ? expectedQty : null,
         actualWeight: null,
         diff: null,
         stockTakeStatus: 'Not checked',
@@ -289,6 +298,7 @@ function loadInStockItems() {
         if (!state) return item;
         return {
           ...item,
+          actualQty: typeof state.actualQty === 'number' ? state.actualQty : item.actualQty,
           actualWeight: typeof state.actualWeight === 'number' ? state.actualWeight : item.actualWeight,
           diff: typeof state.diff === 'number' ? state.diff : item.diff,
           stockTakeStatus: state.stockTakeStatus || item.stockTakeStatus,
@@ -307,6 +317,7 @@ function saveStockTakeState() {
     const payload = {};
     for (const item of stockItems) {
       payload[item.labelId] = {
+        actualQty: typeof item.actualQty === 'number' ? item.actualQty : null,
         actualWeight: typeof item.actualWeight === 'number' ? item.actualWeight : null,
         diff: typeof item.diff === 'number' ? item.diff : null,
         stockTakeStatus: item.stockTakeStatus,
@@ -337,18 +348,21 @@ function renderStockTable() {
     const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
       ? `${item.diff.toFixed(2)} g`
       : '--';
-    const statusClass = item.stockTakeStatus.startsWith('Done')
-      ? (item.stockTakeStatus.includes('within') ? 'text-green-700' : 'text-red-700')
-      : 'text-gray-700';
+    const expectedQtyText = typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
+      ? `${item.expectedQty.toFixed(0)} pcs`
+      : '--';
+    const actualQtyText = typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
+      ? `${item.actualQty.toFixed(0)} pcs`
+      : '--';
 
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${item.labelId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${item.itemName}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${item.status}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedQtyText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedText}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${actualQtyText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${actualText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${diffText}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold ${statusClass}">${item.stockTakeStatus}</td>
     `;
     tableBody.appendChild(tr);
   }
@@ -543,12 +557,27 @@ function updateStockTakeRow(expected, diff, withinTolerance) {
   const unitMatch = (infoExpected.textContent || '').match(/[a-zA-Z]+$/);
   const unit = unitMatch ? unitMatch[0] : 'g';
 
+  const baseItem = idx >= 0 ? stockItems[idx] : stockItems.find(it => it.labelId === labelId) || {};
+  const expectedQty = typeof baseItem.expectedQty === 'number' && !Number.isNaN(baseItem.expectedQty)
+    ? baseItem.expectedQty
+    : null;
+
+  let actualQty = expectedQty;
+  if (expectedQty && expectedWeight > 0 && typeof actualWeight === 'number' && !Number.isNaN(actualWeight)) {
+    const ratio = actualWeight / expectedWeight;
+    if (!Number.isNaN(ratio) && ratio > 0) {
+      actualQty = expectedQty * ratio;
+    }
+  }
+
   const updated = {
     labelId,
     itemName,
     status,
     expectedWeight,
     unit,
+    expectedQty,
+    actualQty,
     actualWeight,
     diff,
     stockTakeStatus,
