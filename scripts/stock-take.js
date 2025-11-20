@@ -18,6 +18,7 @@ let keepReadingScale = false;
 let currentWeight = 0;
 const STOCK_TAKE_TOLERANCE_GRAMS = 5; // allowable +/- 5g difference
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
+const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
 const connectScaleBtn = document.getElementById('connect-scale-btn');
 const disconnectScaleBtn = document.getElementById('disconnect-scale-btn');
@@ -72,6 +73,8 @@ function applyStockTakeUpdates() {
       return;
     }
 
+    const currentUser = getCurrentUser();
+
     const insRaw = localStorage.getItem('weight_records');
     let ins = insRaw ? JSON.parse(insRaw) : [];
     if (!Array.isArray(ins)) ins = [];
@@ -100,16 +103,52 @@ function applyStockTakeUpdates() {
       return;
     }
 
-    // Apply new weights (stored in grams) to the latest IN records
+    // Apply new weights (stored in grams) to the latest IN records and log history
+    const historyEntries = [];
     latestIndexByLabel.forEach((index, labelId) => {
       const rec = ins[index];
       const newWeight = updatedLabels.get(labelId);
       if (!rec || typeof newWeight !== 'number' || Number.isNaN(newWeight)) return;
+
+      const prevWeight = typeof rec.measuredWeight === 'number'
+        ? rec.measuredWeight
+        : parseFloat(rec.measuredWeight);
+      const prevUnit = rec.unit || 'g';
+
+      historyEntries.push({
+        timestamp: new Date().toISOString(),
+        labelId,
+        itemName: rec.itemName || '--',
+        itemId: rec.itemId || '--',
+        lotNo: rec.lotNo || '--',
+        manufacturingLot: rec.manufacturingLot || '--',
+        weightBefore: prevWeight,
+        unitBefore: prevUnit,
+        weightAfter: newWeight,
+        unitAfter: 'g',
+        responsibleUser: currentUser
+          ? (currentUser.displayName || currentUser.name || currentUser.username || '')
+          : '',
+      });
+
       rec.measuredWeight = newWeight;
       rec.unit = 'g';
     });
 
     localStorage.setItem('weight_records', JSON.stringify(ins));
+
+    // Append stock-take history
+    if (historyEntries.length) {
+      try {
+        const rawHist = localStorage.getItem(STOCK_TAKE_HISTORY_KEY);
+        let history = rawHist ? JSON.parse(rawHist) : [];
+        if (!Array.isArray(history)) history = [];
+        history.push(...historyEntries);
+        localStorage.setItem(STOCK_TAKE_HISTORY_KEY, JSON.stringify(history));
+      } catch (err) {
+        console.error('Error saving stock take history:', err);
+      }
+    }
 
     // Clear saved stock-take state so everything resets to "Not checked"
     localStorage.removeItem(STOCK_TAKE_STATE_KEY);

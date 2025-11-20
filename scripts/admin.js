@@ -11,6 +11,9 @@ function getCurrentUser() {
 
 const MAX_RECORD_AGE_DAYS = 60;
 const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
+const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
+
+let currentView = 'movement'; // 'movement' | 'stocktake'
 
 function isAdmin(user) {
   if (!user) return false;
@@ -96,6 +99,20 @@ function loadCombinedRecords() {
   return all;
 }
 
+function loadStockTakeHistory() {
+  try {
+    const raw = localStorage.getItem(STOCK_TAKE_HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const pruned = pruneRecords(parsed);
+    if (pruned.length !== parsed.length) {
+      localStorage.setItem(STOCK_TAKE_HISTORY_KEY, JSON.stringify(pruned));
+    }
+    return pruned;
+  } catch {
+    return [];
+  }
+}
+
 function withinDateRange(ts, fromDate, toDate) {
   if (!ts) return false;
   const time = new Date(ts).getTime();
@@ -115,6 +132,40 @@ function parseDateOnly(d) {
   return [start, end];
 }
 
+function setHeaderForMovement() {
+  const headerRow = document.getElementById('admin-header-row');
+  if (!headerRow) return;
+  headerRow.innerHTML = `
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unit</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+  `;
+}
+
+function setHeaderForStockTake() {
+  const headerRow = document.getElementById('admin-header-row');
+  if (!headerRow) return;
+  headerRow.innerHTML = `
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight Before</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight After</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Difference</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+  `;
+}
+
 function render(records) {
   const tbody = document.getElementById('admin-records-body');
   statusMessage('');
@@ -124,6 +175,41 @@ function render(records) {
     return;
   }
   cachedRecords = records;
+
+  if (currentView === 'stocktake') {
+    for (const r of records) {
+      const tr = document.createElement('tr');
+      const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
+      const beforeText = typeof r.weightBefore === 'number'
+        ? `${r.weightBefore.toFixed(2)} ${r.unitBefore || 'g'}`
+        : '--';
+      const afterText = typeof r.weightAfter === 'number'
+        ? `${r.weightAfter.toFixed(2)} ${r.unitAfter || 'g'}`
+        : '--';
+      const diff = (typeof r.weightBefore === 'number' && typeof r.weightAfter === 'number')
+        ? (r.weightAfter - r.weightBefore)
+        : null;
+      const diffText = typeof diff === 'number' && !Number.isNaN(diff)
+        ? `${diff.toFixed(2)} ${r.unitAfter || r.unitBefore || 'g'}`
+        : '--';
+
+      tr.innerHTML = `
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemId || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.lotNo || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.manufacturingLot || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${beforeText}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${afterText}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${diffText}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.responsibleUser || '--'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    return;
+  }
+
   for (const r of records) {
     const tr = document.createElement('tr');
     const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
@@ -151,31 +237,55 @@ function applyFilter() {
   const start = fromStart ?? null;
   const end = (toStart !== null) ? toEnd : null;
 
-  const all = loadCombinedRecords();
+  const all = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
   const filtered = all.filter(r => withinDateRange(r.timestamp, start, end));
   render(filtered);
 }
 
 function exportCsv() {
-  const records = cachedRecords && cachedRecords.length ? cachedRecords : loadCombinedRecords();
+  const base = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+  const records = cachedRecords && cachedRecords.length ? cachedRecords : base;
   if (!records.length) {
     alert('No records to export.');
     return;
   }
 
-  const headers = ['Date', 'Type', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Weight', 'Unit', 'Responsible'];
-  const rows = records.map(r => [
-    r.timestamp ? new Date(r.timestamp).toISOString() : '',
-    r.type,
-    r.labelId,
-    r.itemName,
-    r.itemId,
-    r.lotNo,
-    r.manufacturingLot,
-    typeof r.weight === 'number' ? r.weight.toFixed(2) : '',
-    r.unit,
-    r.responsibleUser
-  ]);
+  let headers;
+  let rows;
+  if (currentView === 'stocktake') {
+    headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Weight Before', 'Weight After', 'Difference', 'Responsible'];
+    rows = records.map(r => {
+      const diff = (typeof r.weightBefore === 'number' && typeof r.weightAfter === 'number')
+        ? (r.weightAfter - r.weightBefore)
+        : null;
+      return [
+        r.timestamp ? new Date(r.timestamp).toISOString() : '',
+        r.labelId || '',
+        r.itemName || '',
+        r.itemId || '',
+        r.lotNo || '',
+        r.manufacturingLot || '',
+        typeof r.weightBefore === 'number' ? r.weightBefore.toFixed(2) : '',
+        typeof r.weightAfter === 'number' ? r.weightAfter.toFixed(2) : '',
+        typeof diff === 'number' ? diff.toFixed(2) : '',
+        r.responsibleUser || '',
+      ];
+    });
+  } else {
+    headers = ['Date', 'Type', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Weight', 'Unit', 'Responsible'];
+    rows = records.map(r => [
+      r.timestamp ? new Date(r.timestamp).toISOString() : '',
+      r.type,
+      r.labelId,
+      r.itemName,
+      r.itemId,
+      r.lotNo,
+      r.manufacturingLot,
+      typeof r.weight === 'number' ? r.weight.toFixed(2) : '',
+      r.unit,
+      r.responsibleUser
+    ]);
+  }
 
   const csv = [headers, ...rows]
     .map(row => row.map(escapeCsv).join(','))
@@ -250,7 +360,53 @@ window.addEventListener('DOMContentLoaded', () => {
     render(loadCombinedRecords());
   });
   document.getElementById('export-csv')?.addEventListener('click', exportCsv);
-  document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
+  document.getElementById('export-csv')?.addEventListener('click', exportCsv);
+  document.getElementById('view-movement-btn')?.addEventListener('click', () => setView('movement'));
+  document.getElementById('view-stocktake-btn')?.addEventListener('click', () => setView('stocktake'));
 
+  setHeaderForMovement();
   render(loadCombinedRecords());
 });
+
+function setView(view) {
+  currentView = view;
+  if (view === 'stocktake') {
+    setHeaderForStocktake();
+    render(loadStockTakeHistory());
+  } else {
+    setHeaderForMovement();
+    render(loadCombinedRecords());
+  }
+}
+
+function setHeaderForMovement() {
+  const thead = document.getElementById('admin-records-head');
+  thead.innerHTML = `
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Manufacturing Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unit</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+  `;
+}
+
+function setHeaderForStocktake() {
+  const thead = document.getElementById('admin-records-head');
+  thead.innerHTML = `
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Manufacturing Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight Before</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight After</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Difference</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+  `;
+}
