@@ -821,17 +821,20 @@ function printStockTakeReport() {
     const signatureHtml = `
       <div style="margin-bottom:16px; display:flex; justify-content:flex-end;">
         <div style="display:flex;">
-          <div style="width:120px; text-align:center;">
-            <div style="border:1px solid #111827; height:80px;"></div>
-            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Issue</div>
+          <div style="width:120px;">
+            <div style="border:1px solid #111827; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
+              Issue
+            </div>
           </div>
-          <div style="width:120px; text-align:center;">
-            <div style="border:1px solid #111827; height:80px; border-left:none;"></div>
-            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Confirm</div>
+          <div style="width:120px;">
+            <div style="border:1px solid #111827; border-left:none; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
+              Confirm
+            </div>
           </div>
-          <div style="width:120px; text-align:center;">
-            <div style="border:1px solid #111827; height:80px; border-left:none;"></div>
-            <div style="margin-top:4px; font-size:10pt; font-weight:600;">Approved</div>
+          <div style="width:120px;">
+            <div style="border:1px solid #111827; border-left:none; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
+              Approved
+            </div>
           </div>
         </div>
       </div>
