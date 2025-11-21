@@ -79,13 +79,17 @@ function renderFilteredAndSorted() {
     const expectedText = row.expectedWeight && !Number.isNaN(row.expectedWeight)
       ? `${formatNumber(row.expectedWeight, 2)} ${row.unit}`
       : '--';
+    const qtyNum = parseFloat(row.quantity);
+    const qtyText = !Number.isNaN(qtyNum)
+      ? formatNumber(qtyNum, 0)
+      : row.quantity;
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.labelId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemName}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.itemId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.lotNo}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.manufacturingLot}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.quantity}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.unit}</td>
     `;

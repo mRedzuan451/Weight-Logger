@@ -23,6 +23,15 @@ const unitToGramFactor = {
     oz: 28.349523125,
 };
 
+function formatNumber(value, decimals = 2) {
+    const n = Number(value);
+    if (Number.isNaN(n)) return '';
+    return n.toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    });
+}
+
 function toGrams(value, unit) {
     const f = unitToGramFactor[unit] || 1;
     return (parseFloat(value) || 0) * f;
@@ -178,7 +187,7 @@ function applyPartialPacketLogic(scanned) {
         clone._partialBaseWeightGrams = baseWeightGrams;
         clone._partialBaseQty = baseQty;
         if (!Number.isNaN(baseWeight) && isFinite(baseWeight)) {
-            const baseDisplay = `${Number(baseWeight).toFixed(2)} ${baseUnit}`;
+            const baseDisplay = `${formatNumber(baseWeight, 2)} ${baseUnit}`;
             clone.previousWeightDisplay = baseDisplay;
         }
         // Defer quantity calculation until weight is locked
@@ -252,7 +261,7 @@ function checkSaveButtonState() {
 function updateLockedWeightDisplay() {
     if (lockedWeight !== null) {
         const unit = unitSelect.value;
-        infoLockedWeight.textContent = `${lockedWeight.toFixed(2)} ${unit}`;
+        infoLockedWeight.textContent = `${formatNumber(lockedWeight, 2)} ${unit}`;
     } else {
         infoLockedWeight.textContent = '--';
     }
@@ -537,14 +546,14 @@ function parseScaleData(data) {
 
         if (!isNaN(weight)) {
             currentWeight = weight;
-            currentWeightDisplay.textContent = weight.toFixed(2);
+            currentWeightDisplay.textContent = formatNumber(weight, 2);
             setLockedWeight(currentWeight, 'auto');
         }
     } else {
         const weight = parseFloat(data);
         if (!isNaN(weight)) {
             currentWeight = weight;
-            currentWeightDisplay.textContent = weight.toFixed(2);
+            currentWeightDisplay.textContent = formatNumber(weight, 2);
             setLockedWeight(currentWeight, 'auto');
         }
     }
@@ -809,10 +818,16 @@ function createRecordRow(data) {
     const itemId = data.itemId || '--';
     const lotNo = data.lotNo || '--';
     const manufacturingLot = data.manufacturingLot || '--';
-    const quantity = data.quantity || '--';
+    let quantity = data.quantity || '--';
+    if (quantity !== '--') {
+        const qNum = Number(quantity);
+        if (!Number.isNaN(qNum)) {
+            quantity = formatNumber(qNum, 0);
+        }
+    }
     const responsible = data.responsibleUser || '--';
     const weight = typeof data.measuredWeight === 'number'
-        ? `${data.measuredWeight.toFixed(2)} ${data.unit || 'g'}`
+        ? `${formatNumber(data.measuredWeight, 2)} ${data.unit || 'g'}`
         : '--';
 
     row.innerHTML = `
@@ -858,7 +873,7 @@ function exportAllRecordsAsCsv() {
 
     const rows = allDocs.map(record => {
         const date = record.timestamp ? new Date(record.timestamp).toISOString() : '';
-        const weight = typeof record.measuredWeight === 'number' ? record.measuredWeight.toFixed(2) : '';
+        const weight = typeof record.measuredWeight === 'number' ? formatNumber(record.measuredWeight, 2) : '';
         return [
             date,
             record.labelId || '',
