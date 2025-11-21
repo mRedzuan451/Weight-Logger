@@ -293,8 +293,11 @@ function render(records) {
         ? (r.weightAfter - r.weightBefore)
         : null;
       const diffText = typeof diff === 'number' && !Number.isNaN(diff)
-        ? `${diff.toFixed(2)} ${r.unitAfter || r.unitBefore || 'g'}`
+        ? `${diff.toFixed(2)} g`
         : '--';
+      const diffClass = typeof diff === 'number' && !Number.isNaN(diff) && Math.abs(diff) > 5
+        ? 'text-red-600'
+        : 'text-gray-700';
 
       tr.innerHTML = `
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
@@ -304,7 +307,7 @@ function render(records) {
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${beforeText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyAfterText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${afterText}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${diffText}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm ${diffClass}">${diffText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.responsibleUser || '--'}</td>
       `;
       tbody.appendChild(tr);
