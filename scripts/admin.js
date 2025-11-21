@@ -176,7 +176,9 @@ function setView(view) {
 
   const fromDateEl = document.getElementById('from-date');
   const toDateEl = document.getElementById('to-date');
-  if ((fromDateEl && fromDateEl.value) || (toDateEl && toDateEl.value)) {
+  const searchEl = document.getElementById('admin-search');
+  const hasSearch = !!(searchEl && searchEl.value && searchEl.value.trim());
+  if ((fromDateEl && fromDateEl.value) || (toDateEl && toDateEl.value) || hasSearch) {
     applyFilter();
   } else {
     const records = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
@@ -254,9 +256,27 @@ function applyFilter() {
   const [toStart, toEnd] = parseDateOnly(document.getElementById('to-date').value);
   const start = fromStart ?? null;
   const end = (toStart !== null) ? toEnd : null;
+  const searchInput = document.getElementById('admin-search');
+  const query = (searchInput && searchInput.value ? searchInput.value : '').trim().toLowerCase();
 
   const all = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
-  const filtered = all.filter(r => withinDateRange(r.timestamp, start, end));
+  let filtered = all.filter(r => withinDateRange(r.timestamp, start, end));
+
+  if (query) {
+    filtered = filtered.filter(r => {
+      const fields = [
+        r.labelId,
+        r.itemName,
+        r.itemId,
+        r.lotNo,
+        r.manufacturingLot,
+        r.responsibleUser,
+        r.type,
+      ];
+      return fields.some(f => String(f || '').toLowerCase().includes(query));
+    });
+  }
+
   render(filtered);
 }
 
@@ -381,6 +401,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
   document.getElementById('view-movement-btn')?.addEventListener('click', () => setView('movement'));
   document.getElementById('view-stocktake-btn')?.addEventListener('click', () => setView('stocktake'));
+
+  const searchInput = document.getElementById('admin-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilter);
+  }
 
   setHeaderForMovement();
   render(loadCombinedRecords());
