@@ -296,7 +296,7 @@ function render(records) {
         ? `${diff.toFixed(2)} g`
         : '--';
       const diffClass = typeof diff === 'number' && !Number.isNaN(diff) && Math.abs(diff) > 5
-        ? 'text-red-600'
+        ? 'text-red-600 font-bold'
         : 'text-gray-700';
 
       tr.innerHTML = `
