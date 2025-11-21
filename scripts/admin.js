@@ -14,6 +14,7 @@ const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
 let currentView = 'movement'; // 'movement' | 'stocktake'
+let adminSort = { key: 'timestamp', direction: 'desc' };
 
 function isAdmin(user) {
   if (!user) return false;
@@ -73,9 +74,7 @@ function loadCombinedRecords() {
     timestamp: r.timestamp || '',
     labelId: r.labelId || '--',
     itemName: r.itemName || '--',
-    itemId: r.itemId || '--',
-    lotNo: r.lotNo || '--',
-    manufacturingLot: r.manufacturingLot || '--',
+    quantity: r.quantity || '',
     weight: typeof r.measuredWeight === 'number' ? r.measuredWeight : null,
     unit: r.unit || '--',
     responsibleUser: r.responsibleUser || '--',
@@ -86,9 +85,7 @@ function loadCombinedRecords() {
     timestamp: r.timestamp || '',
     labelId: r.labelId || '--',
     itemName: r.itemName || '--',
-    itemId: r.itemId || '--',
-    lotNo: r.lotNo || '--',
-    manufacturingLot: r.manufacturingLot || '--',
+    quantity: r.quantity || '',
     weight: typeof r.outWeight === 'number' ? r.outWeight : null,
     unit: r.unit || '--',
     responsibleUser: r.responsibleUser || '--',
@@ -140,9 +137,7 @@ function setHeaderForMovement() {
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quantity</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Unit</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
@@ -156,14 +151,93 @@ function setHeaderForStockTake() {
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
-    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty Before</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight Before</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty After</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Weight After</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Difference</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
   `;
+}
+
+const movementSortKeys = ['timestamp', 'type', 'labelId', 'itemName', 'quantity', 'weight', 'unit', 'responsibleUser'];
+const stockTakeSortKeysAdmin = ['timestamp', 'labelId', 'itemName', 'quantityBefore', 'weightBefore', 'quantityAfter', 'weightAfter', 'diff', 'responsibleUser'];
+
+function getCurrentSortKeys() {
+  return currentView === 'stocktake' ? stockTakeSortKeysAdmin : movementSortKeys;
+}
+
+function setAdminSort(key) {
+  if (adminSort.key === key) {
+    adminSort.direction = adminSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    adminSort = { key, direction: 'asc' };
+  }
+  const base = (cachedRecords && cachedRecords.length)
+    ? cachedRecords
+    : (currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords());
+  render(base);
+}
+
+function sortRecords(records) {
+  if (!Array.isArray(records) || !records.length) return records;
+  const { key, direction } = adminSort || {};
+  if (!key) return records;
+
+  const sorted = records.slice();
+  sorted.sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+
+    if (av == null && bv == null) return 0;
+    if (av == null) return direction === 'asc' ? -1 : 1;
+    if (bv == null) return direction === 'asc' ? 1 : -1;
+
+    if (typeof av === 'number' && typeof bv === 'number') {
+      return direction === 'asc' ? av - bv : bv - av;
+    }
+
+    const as = String(av).toLowerCase();
+    const bs = String(bv).toLowerCase();
+    if (as < bs) return direction === 'asc' ? -1 : 1;
+    if (as > bs) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function updateAdminSortIndicators() {
+  const headerRow = document.getElementById('admin-header-row');
+  if (!headerRow) return;
+  const ths = Array.from(headerRow.querySelectorAll('th'));
+  const sortKeys = getCurrentSortKeys();
+  ths.forEach((th, index) => {
+    const key = sortKeys[index];
+    if (!key) return;
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/[▲▼]/g, '').trim();
+    th.dataset.baseLabel = baseLabel;
+
+    if (key === adminSort.key) {
+      const arrow = adminSort.direction === 'asc' ? '▲' : '▼';
+      th.textContent = baseLabel + ' ' + arrow;
+    } else {
+      th.textContent = baseLabel;
+    }
+    th.classList.add('cursor-pointer', 'select-none');
+  });
+}
+
+function setupAdminSortHeaders() {
+  const headerRow = document.getElementById('admin-header-row');
+  if (!headerRow) return;
+  const ths = Array.from(headerRow.querySelectorAll('th'));
+  const sortKeys = getCurrentSortKeys();
+  ths.forEach((th, index) => {
+    const key = sortKeys[index];
+    if (!key) return;
+    th.addEventListener('click', () => setAdminSort(key));
+  });
+  updateAdminSortIndicators();
 }
 
 function setView(view) {
@@ -173,6 +247,8 @@ function setView(view) {
   } else {
     setHeaderForMovement();
   }
+
+  setupAdminSortHeaders();
 
   const fromDateEl = document.getElementById('from-date');
   const toDateEl = document.getElementById('to-date');
@@ -194,12 +270,19 @@ function render(records) {
     tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-gray-500">No records found.</td></tr>';
     return;
   }
-  cachedRecords = records;
+  const sortedRecords = sortRecords(records);
+  cachedRecords = sortedRecords;
 
   if (currentView === 'stocktake') {
-    for (const r of records) {
+    for (const r of sortedRecords) {
       const tr = document.createElement('tr');
       const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
+      const qtyBeforeText = typeof r.quantityBefore === 'number' && !Number.isNaN(r.quantityBefore)
+        ? r.quantityBefore.toFixed(0)
+        : '--';
+      const qtyAfterText = typeof r.quantityAfter === 'number' && !Number.isNaN(r.quantityAfter)
+        ? r.quantityAfter.toFixed(0)
+        : '--';
       const beforeText = typeof r.weightBefore === 'number'
         ? `${r.weightBefore.toFixed(2)} ${r.unitBefore || 'g'}`
         : '--';
@@ -217,10 +300,9 @@ function render(records) {
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId || '--'}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName || '--'}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemId || '--'}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.lotNo || '--'}</td>
-        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.manufacturingLot || '--'}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyBeforeText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${beforeText}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyAfterText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${afterText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${diffText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.responsibleUser || '--'}</td>
@@ -230,7 +312,7 @@ function render(records) {
     return;
   }
 
-  for (const r of records) {
+  for (const r of sortedRecords) {
     const tr = document.createElement('tr');
     const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
     const weight = typeof r.weight === 'number' ? r.weight.toFixed(2) : '--';
@@ -240,15 +322,15 @@ function render(records) {
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold" style="color: ${typeColor};">${r.type}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemId}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.lotNo}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.manufacturingLot}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.quantity || ''}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${weight}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.unit}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.responsibleUser}</td>
     `;
     tbody.appendChild(tr);
   }
+
+  updateAdminSortIndicators();
 }
 
 function applyFilter() {
@@ -267,9 +349,7 @@ function applyFilter() {
       const fields = [
         r.labelId,
         r.itemName,
-        r.itemId,
-        r.lotNo,
-        r.manufacturingLot,
+        r.quantity,
         r.responsibleUser,
         r.type,
       ];
@@ -291,7 +371,7 @@ function exportCsv() {
   let headers;
   let rows;
   if (currentView === 'stocktake') {
-    headers = ['Date', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Weight Before', 'Weight After', 'Difference', 'Responsible'];
+    headers = ['Date', 'Label ID', 'Item Name', 'Qty Before', 'Weight Before', 'Qty After', 'Weight After', 'Difference', 'Responsible'];
     rows = records.map(r => {
       const diff = (typeof r.weightBefore === 'number' && typeof r.weightAfter === 'number')
         ? (r.weightAfter - r.weightBefore)
@@ -300,25 +380,22 @@ function exportCsv() {
         r.timestamp ? new Date(r.timestamp).toISOString() : '',
         r.labelId || '',
         r.itemName || '',
-        r.itemId || '',
-        r.lotNo || '',
-        r.manufacturingLot || '',
+        typeof r.quantityBefore === 'number' ? r.quantityBefore.toFixed(0) : '',
         typeof r.weightBefore === 'number' ? r.weightBefore.toFixed(2) : '',
+        typeof r.quantityAfter === 'number' ? r.quantityAfter.toFixed(0) : '',
         typeof r.weightAfter === 'number' ? r.weightAfter.toFixed(2) : '',
         typeof diff === 'number' ? diff.toFixed(2) : '',
         r.responsibleUser || '',
       ];
     });
   } else {
-    headers = ['Date', 'Type', 'Label ID', 'Item Name', 'Item ID', 'Lot No', 'Manufacturing Lot', 'Weight', 'Unit', 'Responsible'];
+    headers = ['Date', 'Type', 'Label ID', 'Item Name', 'Quantity', 'Weight', 'Unit', 'Responsible'];
     rows = records.map(r => [
       r.timestamp ? new Date(r.timestamp).toISOString() : '',
       r.type,
       r.labelId,
       r.itemName,
-      r.itemId,
-      r.lotNo,
-      r.manufacturingLot,
+      r.quantity || '',
       typeof r.weight === 'number' ? r.weight.toFixed(2) : '',
       r.unit,
       r.responsibleUser
@@ -408,5 +485,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   setHeaderForMovement();
+  setupAdminSortHeaders();
   render(loadCombinedRecords());
 });

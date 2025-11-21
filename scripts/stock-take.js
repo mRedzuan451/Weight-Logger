@@ -128,6 +128,14 @@ function applyStockTakeUpdates() {
         : parseFloat(rec.measuredWeight);
       const prevUnit = rec.unit || 'g';
 
+      const stockItem = stockItems.find(item => item.labelId === labelId) || {};
+      const qtyBefore = typeof stockItem.expectedQty === 'number' && !Number.isNaN(stockItem.expectedQty)
+        ? stockItem.expectedQty
+        : null;
+      const qtyAfter = typeof stockItem.actualQty === 'number' && !Number.isNaN(stockItem.actualQty)
+        ? stockItem.actualQty
+        : null;
+
       historyEntries.push({
         timestamp: new Date().toISOString(),
         labelId,
@@ -135,6 +143,8 @@ function applyStockTakeUpdates() {
         itemId: rec.itemId || '--',
         lotNo: rec.lotNo || '--',
         manufacturingLot: rec.manufacturingLot || '--',
+        quantityBefore: qtyBefore,
+        quantityAfter: qtyAfter,
         weightBefore: prevWeight,
         unitBefore: prevUnit,
         weightAfter: newWeight,
