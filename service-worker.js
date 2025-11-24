@@ -1,4 +1,6 @@
-const CACHE_VERSION = 'v1.0.0';
+importScripts('./scripts/version.js');
+
+const CACHE_VERSION = self.APP_VERSION;
 const CACHE_NAME = `weight-logger-cache-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -16,7 +18,8 @@ const APP_SHELL = [
   './scripts/stock-out.js',
   './scripts/stock-out-records.js',
   './scripts/menu.js',
-  './scripts/admin.js'
+  './scripts/admin.js',
+  './scripts/version.js'
 ];
 
 const REMOTE_ASSETS = [

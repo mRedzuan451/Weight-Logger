@@ -34,6 +34,11 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  const versionEl = document.getElementById('app-version');
+  if (versionEl && self.APP_VERSION) {
+    versionEl.textContent = self.APP_VERSION;
+  }
+
   const logoutBtn = document.getElementById('logout-btn');
   logoutBtn?.addEventListener('click', (event) => {
     event.preventDefault();
