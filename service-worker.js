@@ -20,7 +20,6 @@ const APP_SHELL = [
 ];
 
 const REMOTE_ASSETS = [
-  'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com',
   'https://fonts.gstatic.com'
 ];
