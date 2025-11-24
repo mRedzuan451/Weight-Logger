@@ -562,6 +562,7 @@ function parseScaleData(data) {
 // --- QR Code Scanner ---
 qrInput.addEventListener('click', (event) => {
     event.target.value = '';
+    event.target.classList.remove('border-red-500', 'ring-red-300');
 });
 qrInput.addEventListener('change', (event) => {
     const data = event.target.value;
@@ -669,8 +670,27 @@ unitSelect.addEventListener('change', () => {
 });
 
 saveRecordBtn.addEventListener('click', async () => {
-    if (!currentScannedData || lockedWeight === null) {
-        showStatusMessage('Missing data or weight.', true);
+    if (!currentScannedData) {
+        showStatusMessage('Scan a label before saving.', true);
+        if (qrInput) {
+            qrInput.focus();
+            qrInput.classList.add('border-red-500', 'ring-red-300');
+        }
+        return;
+    }
+    if (qrInput) {
+        qrInput.classList.remove('border-red-500', 'ring-red-300');
+    }
+
+    if (lockedWeight === null) {
+        showStatusMessage('Lock a weight before saving.', true);
+        lockWeightBtn?.focus();
+        return;
+    }
+
+    if (typeof lockedWeight !== 'number' || !Number.isFinite(lockedWeight) || lockedWeight <= 0) {
+        showStatusMessage('Locked weight must be greater than zero.', true);
+        lockWeightBtn?.focus();
         return;
     }
 

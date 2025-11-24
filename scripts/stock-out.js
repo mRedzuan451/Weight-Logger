@@ -181,13 +181,19 @@ function updateStatusMessage(labelId) {
 // --- Events ---
 qrInput.addEventListener('click', (e) => {
   e.target.value = '';
+  e.target.classList.remove('border-red-500', 'ring-red-300');
 });
 qrInput.addEventListener('change', (e) => {
   const data = e.target.value;
-  if (!data) return;
+  if (!data) {
+    showStatus('Scan is empty. Click the box and scan the code again.', true);
+    qrInput.classList.add('border-red-500', 'ring-red-300');
+    return;
+  }
   const scanned = parseScanned(data);
   if (!scanned) {
     showStatus('Unable to read scanned code.', true);
+    qrInput.classList.add('border-red-500', 'ring-red-300');
     return;
   }
 
@@ -218,21 +224,33 @@ qrInput.addEventListener('change', (e) => {
       };
     } else {
       showStatus('No stock-in record found for this label. It may not be in stock.', true);
+      qrInput.classList.add('border-red-500', 'ring-red-300');
     }
   } else {
     showStatus('Scanned code missing label ID.', true);
+    qrInput.classList.add('border-red-500', 'ring-red-300');
   }
 
   currentScannedData = resolved;
   updateInfo(currentScannedData);
   updateStatusMessage(currentScannedData?.labelId);
   showStatus('Code scanned.', false);
+  qrInput.classList.remove('border-red-500', 'ring-red-300');
   e.target.value = '';
 });
 
 saveOutBtn.addEventListener('click', () => {
-  if (!currentScannedData) {
-    showStatus('Scan an item first.', true);
+  if (!currentScannedData || !currentScannedData.labelId) {
+    showStatus('Scan an item with a valid label ID before saving.', true);
+    qrInput.focus();
+    qrInput.classList.add('border-red-500', 'ring-red-300');
+    return;
+  }
+
+  const statusText = getStatusForLabel(currentScannedData.labelId);
+  if (statusText !== 'In Stock') {
+    showStatus('This label is not currently in stock and cannot be marked out.', true);
+    updateStatusMessage(currentScannedData.labelId);
     return;
   }
 

@@ -115,6 +115,30 @@ window.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('login-form');
   if (!form) return;
 
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const error = document.getElementById('error');
+
+  function clearErrorState() {
+    if (error) {
+      error.classList.add('hidden');
+      error.textContent = '';
+    }
+    if (usernameInput) {
+      usernameInput.classList.remove('border-red-500', 'ring-red-300');
+    }
+    if (passwordInput) {
+      passwordInput.classList.remove('border-red-500', 'ring-red-300');
+    }
+  }
+
+  if (usernameInput) {
+    usernameInput.addEventListener('input', clearErrorState);
+  }
+  if (passwordInput) {
+    passwordInput.addEventListener('input', clearErrorState);
+  }
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
 
@@ -130,6 +154,8 @@ window.addEventListener('DOMContentLoaded', () => {
       error.classList.add('hidden');
       error.textContent = '';
     }
+    usernameInput.classList.remove('border-red-500', 'ring-red-300');
+    passwordInput.classList.remove('border-red-500', 'ring-red-300');
 
     if (!username || !password) {
       if (error) {
@@ -137,6 +163,12 @@ window.addEventListener('DOMContentLoaded', () => {
         error.classList.remove('hidden');
       } else {
         alert('Please enter both username and password.');
+      }
+      if (!username) {
+        usernameInput.classList.add('border-red-500', 'ring-red-300');
+      }
+      if (!password) {
+        passwordInput.classList.add('border-red-500', 'ring-red-300');
       }
       return;
     }
@@ -150,6 +182,8 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         alert('Invalid username or password.');
       }
+      usernameInput.classList.add('border-red-500', 'ring-red-300');
+      passwordInput.classList.add('border-red-500', 'ring-red-300');
       return;
     }
 
@@ -162,6 +196,8 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         alert('Invalid username or password.');
       }
+      usernameInput.classList.add('border-red-500', 'ring-red-300');
+      passwordInput.classList.add('border-red-500', 'ring-red-300');
       return;
     }
 
