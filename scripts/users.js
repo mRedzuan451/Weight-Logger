@@ -1,6 +1,15 @@
 'use strict';
 
 const USER_ACCOUNTS_KEY = 'user_accounts';
+const USERS_BACKUP_SCHEMA_VERSION = 1;
+const USERS_BACKUP_KEYS = [
+  'weight_records',
+  'stock_out_records',
+  'stock_take_history',
+  'stock_take_state',
+  'login_history',
+  USER_ACCOUNTS_KEY,
+];
 
 function getCurrentUser() {
   try {
@@ -56,6 +65,114 @@ function showStatus(message, isError = false) {
   }
   box.textContent = message;
   box.className = 'px-4 py-3 rounded-lg text-sm font-semibold ' + (isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
+}
+
+function usersSafeParseJson(text) {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function usersBuildBackupObject() {
+  const data = {};
+  for (const key of USERS_BACKUP_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) {
+      data[key] = null;
+    } else {
+      data[key] = usersSafeParseJson(raw);
+    }
+  }
+  return {
+    app: 'WeightLogger',
+    schemaVersion: USERS_BACKUP_SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    data,
+  };
+}
+
+function usersBackupJson() {
+  try {
+    const backup = usersBuildBackupObject();
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `weightlogger-backup-${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showStatus('Backup downloaded as JSON file.', false);
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    showStatus('Failed to create backup. Check console.', true);
+  }
+}
+
+function usersRestoreFromBackupObject(backup) {
+  if (!backup || backup.app !== 'WeightLogger' || typeof backup.data !== 'object' || backup.data === null) {
+    showStatus('Invalid backup file format.', true);
+    return;
+  }
+  if (typeof backup.schemaVersion === 'number' && backup.schemaVersion > USERS_BACKUP_SCHEMA_VERSION) {
+    const proceed = window.confirm('This backup was created by a newer version of the app. Try to restore anyway?');
+    if (!proceed) return;
+  }
+
+  const keys = Object.keys(backup.data);
+  if (!keys.length) {
+    showStatus('Backup file contains no data.', true);
+    return;
+  }
+
+  const summary = keys.join(', ');
+  const ok = window.confirm(`Restore data for these keys:\n${summary}\n\nThis will overwrite current data in this browser.`);
+  if (!ok) return;
+
+  try {
+    for (const key of keys) {
+      const value = backup.data[key];
+      if (value === null || typeof value === 'undefined') {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    }
+
+    renderUsers();
+    showStatus('Backup restored successfully.', false);
+  } catch (error) {
+    console.error('Error restoring backup:', error);
+    showStatus('Failed to restore backup. Check console.', true);
+  }
+}
+
+function usersHandleRestoreFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = reader.result;
+      const backup = typeof text === 'string' ? JSON.parse(text) : null;
+      if (!backup) {
+        showStatus('Selected file is not a valid JSON backup.', true);
+        return;
+      }
+      usersRestoreFromBackupObject(backup);
+    } catch (error) {
+      console.error('Error reading backup file:', error);
+      showStatus('Selected file is not a valid JSON backup.', true);
+    }
+  };
+  reader.onerror = () => {
+    showStatus('Failed to read backup file.', true);
+  };
+  reader.readAsText(file);
 }
 
 function renderUsers() {
@@ -134,6 +251,27 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   renderUsers();
+
+  const backupBtn = document.getElementById('users-backup-json');
+  const restoreBtn = document.getElementById('users-restore-json');
+  const restoreInput = document.getElementById('users-restore-file');
+
+  backupBtn?.addEventListener('click', usersBackupJson);
+
+  if (restoreBtn && restoreInput) {
+    restoreBtn.addEventListener('click', () => {
+      restoreInput.value = '';
+      restoreInput.click();
+    });
+    restoreInput.addEventListener('change', (event) => {
+      const target = event.target;
+      const file = target.files && target.files[0];
+      if (file) {
+        usersHandleRestoreFile(file);
+      }
+      target.value = '';
+    });
+  }
 
   const form = document.getElementById('user-form');
   form?.addEventListener('submit', (e) => {

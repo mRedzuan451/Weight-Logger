@@ -20,6 +20,12 @@
       </div>
     </div>
 
+    <div class="flex flex-wrap gap-2 justify-start sm:justify-end">
+      <button id="users-backup-json" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Backup JSON</button>
+      <button id="users-restore-json" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Restore JSON</button>
+    </div>
+    <input id="users-restore-file" type="file" accept="application/json" class="hidden" />
+
     <div id="user-status" class="hidden px-4 py-3 rounded-lg text-sm font-semibold"></div>
 
     <!-- Add / Edit User Form -->

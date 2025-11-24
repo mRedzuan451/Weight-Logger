@@ -13,6 +13,16 @@ const MAX_RECORD_AGE_DAYS = 60;
 const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
+const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_KEYS = [
+  'weight_records',
+  'stock_out_records',
+  STOCK_TAKE_HISTORY_KEY,
+  'stock_take_state',
+  'login_history',
+  'user_accounts',
+];
+
 let currentView = 'movement'; // 'movement' | 'stocktake'
 let adminSort = { key: 'timestamp', direction: 'desc' };
 
@@ -445,6 +455,116 @@ function statusMessage(message, isError = false) {
   }, 3000);
 }
 
+function safeParseJson(text) {
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildBackupObject() {
+  const data = {};
+  for (const key of BACKUP_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) {
+      data[key] = null;
+    } else {
+      data[key] = safeParseJson(raw);
+    }
+  }
+  return {
+    app: 'WeightLogger',
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    data,
+  };
+}
+
+function backupJson() {
+  try {
+    const backup = buildBackupObject();
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `weightlogger-backup-${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    statusMessage('Backup downloaded as JSON file.', false);
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    statusMessage('Failed to create backup. Check console.', true);
+  }
+}
+
+function restoreFromBackupObject(backup) {
+  if (!backup || backup.app !== 'WeightLogger' || typeof backup.data !== 'object' || backup.data === null) {
+    statusMessage('Invalid backup file format.', true);
+    return;
+  }
+  if (typeof backup.schemaVersion === 'number' && backup.schemaVersion > BACKUP_SCHEMA_VERSION) {
+    const proceed = window.confirm('This backup was created by a newer version of the app. Try to restore anyway?');
+    if (!proceed) return;
+  }
+
+  const keys = Object.keys(backup.data);
+  if (!keys.length) {
+    statusMessage('Backup file contains no data.', true);
+    return;
+  }
+
+  const summary = keys.join(', ');
+  const ok = window.confirm(`Restore data for these keys:\n${summary}\n\nThis will overwrite current data in this browser.`);
+  if (!ok) return;
+
+  try {
+    for (const key of keys) {
+      const value = backup.data[key];
+      if (value === null || typeof value === 'undefined') {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    }
+
+    cachedRecords = [];
+    const records = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+    render(records);
+    statusMessage('Backup restored successfully.', false);
+  } catch (error) {
+    console.error('Error restoring backup:', error);
+    statusMessage('Failed to restore backup. Check console.', true);
+  }
+}
+
+function handleRestoreFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = reader.result;
+      const backup = typeof text === 'string' ? JSON.parse(text) : null;
+      if (!backup) {
+        statusMessage('Selected file is not a valid JSON backup.', true);
+        return;
+      }
+      restoreFromBackupObject(backup);
+    } catch (error) {
+      console.error('Error reading backup file:', error);
+      statusMessage('Selected file is not a valid JSON backup.', true);
+    }
+  };
+  reader.onerror = () => {
+    statusMessage('Failed to read backup file.', true);
+  };
+  reader.readAsText(file);
+}
+
 function clearAllData() {
   if (!confirm('This will remove ALL stock-in, stock-out, and stock-take records. Continue?')) return;
   try {
@@ -483,6 +603,25 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
   document.getElementById('view-movement-btn')?.addEventListener('click', () => setView('movement'));
   document.getElementById('view-stocktake-btn')?.addEventListener('click', () => setView('stocktake'));
+
+  document.getElementById('backup-json')?.addEventListener('click', backupJson);
+
+  const restoreFileInput = document.getElementById('restore-file');
+  const restoreJsonBtn = document.getElementById('restore-json');
+  if (restoreFileInput && restoreJsonBtn) {
+    restoreJsonBtn.addEventListener('click', () => {
+      restoreFileInput.value = '';
+      restoreFileInput.click();
+    });
+    restoreFileInput.addEventListener('change', (event) => {
+      const target = event.target;
+      const file = target.files && target.files[0];
+      if (file) {
+        handleRestoreFile(file);
+      }
+      target.value = '';
+    });
+  }
 
   const searchInput = document.getElementById('admin-search');
   if (searchInput) {

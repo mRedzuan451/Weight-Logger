@@ -23,7 +23,7 @@
         <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Log out</button>
         <a href="./menu.html" class="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Menu</a>
         <a href="./login-records.html" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Login Records</a>
-        <a href="./users.html" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Manage Users</a>
+        <a href="./users.html" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Manage Users/Data</a>
         <button id="clear-data-btn" class="bg-red-700 hover:bg-red-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Clear All Data</button>
       </div>
     </div>
@@ -47,13 +47,15 @@
           <label class="block text-sm font-medium text-gray-700 mb-1" for="to-date">To</label>
           <input id="to-date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button id="apply-filter" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Apply</button>
           <button id="clear-filter" class="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Clear</button>
           <button id="export-csv" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Export CSV</button>
         </div>
       </div>
     </div>
+
+    <input id="restore-file" type="file" accept="application/json" class="hidden" />
 
     <div class="flex gap-2 justify-end">
       <button id="view-movement-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">Stock In/Out History</button>
