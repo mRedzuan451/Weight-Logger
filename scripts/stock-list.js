@@ -4,11 +4,12 @@ const bodyEl = document.getElementById('stocklist-body');
 const statusBox = document.getElementById('stocklist-status');
 const logoutBtn = document.getElementById('logout-btn');
 const searchInput = document.getElementById('stocklist-search');
+const printBtn = document.getElementById('stocklist-print-btn');
 
 let allRows = [];
 let currentSort = { key: 'labelId', direction: 'asc' };
 let headerCells = [];
-const sortKeys = ['labelId', 'itemName', 'itemId', 'lotNo', 'manufacturingLot', 'quantity', 'expectedWeight', 'unit'];
+const sortKeys = ['labelId', 'itemName', 'itemId', 'lotNo', 'manufacturingLot', 'quantity', 'expectedWeight'];
 
 function formatNumber(value, decimals = 2) {
   const n = Number(value);
@@ -68,7 +69,7 @@ function renderFilteredAndSorted() {
 
   bodyEl.innerHTML = '';
   if (!rows.length) {
-    bodyEl.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-gray-500">No current stock found.</td></tr>';
+    bodyEl.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-gray-500">No current stock found.</td></tr>';
     return;
   }
 
@@ -81,7 +82,7 @@ function renderFilteredAndSorted() {
       : '--';
     const qtyNum = parseFloat(row.quantity);
     const qtyText = !Number.isNaN(qtyNum)
-      ? formatNumber(qtyNum, 0)
+      ? `${formatNumber(qtyNum, 0)} pcs`
       : row.quantity;
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.labelId}</td>
@@ -91,7 +92,6 @@ function renderFilteredAndSorted() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.manufacturingLot}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${expectedText}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${row.unit}</td>
     `;
     bodyEl.appendChild(tr);
 
@@ -112,7 +112,6 @@ function renderFilteredAndSorted() {
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="5">Total</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalQty, 0)} pcs</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalWeight, 2)} ${rows.length > 0 ? rows[0].unit : ''}</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
   `;
   bodyEl.appendChild(totalTr);
 }
@@ -249,6 +248,9 @@ function loadStockList() {
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
   logoutBtn?.addEventListener('click', handleLogout);
+  printBtn?.addEventListener('click', () => {
+    window.print();
+  });
   if (searchInput) {
     searchInput.addEventListener('input', () => {
       renderFilteredAndSorted();

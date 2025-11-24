@@ -446,10 +446,12 @@ function statusMessage(message, isError = false) {
 }
 
 function clearAllData() {
-  if (!confirm('This will remove ALL stock-in and stock-out records. Continue?')) return;
+  if (!confirm('This will remove ALL stock-in, stock-out, and stock-take records. Continue?')) return;
   try {
     localStorage.removeItem('weight_records');
     localStorage.removeItem('stock_out_records');
+    localStorage.removeItem(STOCK_TAKE_HISTORY_KEY);
+    localStorage.removeItem('stock_take_state');
     cachedRecords = [];
     render([]);
     statusMessage('All records cleared.');

@@ -32,5 +32,17 @@ table{width:100%;border-collapse:collapse}th,td{padding:.75rem 1rem;text-align:l
 
 /* Buttons default to white text */
 .bg-green-600,.bg-green-700,.bg-red-500,.bg-red-600,.bg-red-700,.bg-blue-600,.bg-blue-700,.bg-gray-700,.bg-gray-800,.bg-purple-600,.bg-purple-700,.bg-amber-500,.bg-amber-600,.bg-sky-500,.bg-sky-600,.bg-indigo-600,.bg-indigo-700{color:#fff}
+.bg-sky-600{background:#0284c7}
+.hover\:bg-sky-700:hover{background:#0369a1}
 
 code{background:#e5e7eb;padding:0.125rem 0.4rem;border-radius:0.25rem;font-size:.85em}
+
+@media print{
+  .print-hidden{display:none !important}
+  .shadow,.shadow-md,.shadow-lg,.shadow-xl{box-shadow:none !important}
+  body{background:#ffffff !important}
+  .bg-gray-100{background:#ffffff !important}
+  .max-h-\[70vh\]{max-height:none !important}
+  .overflow-y-auto{overflow-y:visible !important}
+  .overflow-x-auto{overflow-x:visible !important}
+}
