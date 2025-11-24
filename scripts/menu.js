@@ -27,6 +27,98 @@ function isAdmin(user) {
   return name === 'admin' && id === '1234';
 }
 
+function parseJsonArray(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const value = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function getLatestTimestamp(records) {
+  let latest = null;
+  for (const r of records) {
+    if (!r || !r.timestamp) continue;
+    const t = new Date(r.timestamp).getTime();
+    if (Number.isNaN(t)) continue;
+    if (latest === null || t > latest) {
+      latest = t;
+    }
+  }
+  return latest;
+}
+
+function computeInStockLabelCount(ins, outs) {
+  if (!Array.isArray(ins) && !Array.isArray(outs)) return 0;
+
+  const latestInByLabel = new Map();
+  if (Array.isArray(ins)) {
+    for (const r of ins) {
+      if (!r || !r.labelId) continue;
+      const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
+      const existing = latestInByLabel.get(r.labelId);
+      const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
+      if (!existing || t > existingT) {
+        latestInByLabel.set(r.labelId, r);
+      }
+    }
+  }
+
+  const latestOutByLabel = new Map();
+  if (Array.isArray(outs)) {
+    for (const r of outs) {
+      if (!r || !r.labelId) continue;
+      const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
+      const existing = latestOutByLabel.get(r.labelId);
+      const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
+      if (!existing || t > existingT) {
+        latestOutByLabel.set(r.labelId, r);
+      }
+    }
+  }
+
+  let count = 0;
+  latestInByLabel.forEach((inRec, labelId) => {
+    const inTime = inRec.timestamp ? new Date(inRec.timestamp).getTime() : 0;
+    const outRec = latestOutByLabel.get(labelId);
+    const outTime = outRec && outRec.timestamp ? new Date(outRec.timestamp).getTime() : -1;
+    const status = outRec && !Number.isNaN(outTime) && outTime > inTime ? 'OUT' : 'IN';
+    if (status === 'IN') {
+      count += 1;
+    }
+  });
+
+  return count;
+}
+
+function populateDashboard() {
+  const totalInEl = document.getElementById('dash-total-in');
+  const totalOutEl = document.getElementById('dash-total-out');
+  const inStockEl = document.getElementById('dash-in-stock-labels');
+  const lastStockTakeEl = document.getElementById('dash-last-stocktake');
+
+  if (!totalInEl || !totalOutEl || !inStockEl || !lastStockTakeEl) return;
+
+  const ins = parseJsonArray('weight_records');
+  const outs = parseJsonArray('stock_out_records');
+  const stockTakeHistory = parseJsonArray('stock_take_history');
+
+  totalInEl.textContent = String(ins.length);
+  totalOutEl.textContent = String(outs.length);
+
+  const inStockCount = computeInStockLabelCount(ins, outs);
+  inStockEl.textContent = String(inStockCount);
+
+  const latestTs = getLatestTimestamp(stockTakeHistory);
+  if (!latestTs) {
+    lastStockTakeEl.textContent = 'No stock-take yet';
+  } else {
+    lastStockTakeEl.textContent = new Date(latestTs).toLocaleString();
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const user = getCurrentUser();
   if (!user || !(user.name || user.username)) {
@@ -55,4 +147,6 @@ window.addEventListener('DOMContentLoaded', () => {
       adminBtn.style.display = 'none';
     }
   }
+
+  populateDashboard();
 });

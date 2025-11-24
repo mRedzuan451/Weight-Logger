@@ -38,6 +38,27 @@
                 Admin
             </a>
         </div>
+        <div class="bg-gray-50 rounded-lg p-4 text-left">
+            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dashboard</h2>
+            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                    <dt class="text-gray-500">Total stock-in records</dt>
+                    <dd id="dash-total-in" class="text-gray-900 font-semibold">--</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">Total stock-out records</dt>
+                    <dd id="dash-total-out" class="text-gray-900 font-semibold">--</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">Labels currently in stock</dt>
+                    <dd id="dash-in-stock-labels" class="text-gray-900 font-semibold">--</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500">Last stock-take</dt>
+                    <dd id="dash-last-stocktake" class="text-gray-900 font-semibold">No stock-take yet</dd>
+                </div>
+            </dl>
+        </div>
         <div class="mt-6 pt-4 border-t text-xs text-gray-500 text-left">
             <p><span class="font-semibold">Weight &amp; QR Logger</span> &mdash; version <span id="app-version"></span></p>
             <p class="mt-1">Runs locally in your browser using offline storage.</p>
