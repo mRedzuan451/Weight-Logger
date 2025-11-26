@@ -5,6 +5,7 @@ const statusBox = document.getElementById('stocklist-status');
 const logoutBtn = document.getElementById('logout-btn');
 const searchInput = document.getElementById('stocklist-search');
 const printBtn = document.getElementById('stocklist-print-btn');
+const exportBtn = document.getElementById('stocklist-export-btn');
 
 let allRows = [];
 let currentSort = { key: 'labelId', direction: 'asc' };
@@ -29,9 +30,7 @@ function getCurrentUser() {
   }
 }
 
-function renderFilteredAndSorted() {
-  if (!bodyEl) return;
-
+function getFilteredAndSortedRows() {
   const query = (searchInput?.value || '').trim().toLowerCase();
 
   let rows = allRows.slice();
@@ -66,6 +65,14 @@ function renderFilteredAndSorted() {
     if (as > bs) return direction === 'asc' ? 1 : -1;
     return 0;
   });
+
+  return rows;
+}
+
+function renderFilteredAndSorted() {
+  if (!bodyEl) return;
+
+  const rows = getFilteredAndSortedRows();
 
   bodyEl.innerHTML = '';
   if (!rows.length) {
@@ -114,6 +121,55 @@ function renderFilteredAndSorted() {
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumber(totalWeight, 2)} ${rows.length > 0 ? rows[0].unit : ''}</td>
   `;
   bodyEl.appendChild(totalTr);
+}
+
+function exportCurrentViewToCsv() {
+  const rows = getFilteredAndSortedRows();
+  if (!rows.length) {
+    showStatus('No rows to export.', true);
+    return;
+  }
+
+  const headers = ['Label ID', 'Item Name', 'Item ID', 'Lot No', 'Mfg Lot', 'Quantity', 'Expected Weight'];
+  const lines = [headers.join(',')];
+
+  for (const row of rows) {
+    const qtyNum = parseFloat(row.quantity);
+    const qtyText = !Number.isNaN(qtyNum) ? `${qtyNum}` : String(row.quantity || '');
+    const weightNum = parseFloat(row.expectedWeight);
+    const weightText = !Number.isNaN(weightNum) ? `${weightNum}` : String(row.expectedWeight || '');
+    const unit = row.unit || '';
+
+    const values = [
+      row.labelId,
+      row.itemName,
+      row.itemId,
+      row.lotNo,
+      row.manufacturingLot,
+      qtyText,
+      weightText + (unit ? ` ${unit}` : ''),
+    ].map(v => {
+      const s = String(v ?? '');
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    });
+
+    lines.push(values.join(','));
+  }
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'stock-list.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showStatus('Exported current stock list to CSV.', false);
 }
 
 function setSort(key) {
@@ -250,6 +306,9 @@ window.addEventListener('DOMContentLoaded', () => {
   logoutBtn?.addEventListener('click', handleLogout);
   printBtn?.addEventListener('click', () => {
     window.print();
+  });
+  exportBtn?.addEventListener('click', () => {
+    exportCurrentViewToCsv();
   });
   if (searchInput) {
     searchInput.addEventListener('input', () => {
