@@ -149,20 +149,4 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   populateDashboard();
-
-  const dashboardBtn = document.getElementById('dashboard-btn');
-  const dashboardCard = document.getElementById('menu-dashboard-card');
-  if (dashboardBtn && dashboardCard) {
-    dashboardBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      const isHidden = dashboardCard.classList.contains('hidden');
-      if (isHidden) {
-        dashboardCard.classList.remove('hidden');
-        dashboardBtn.textContent = 'Hide Dashboard';
-      } else {
-        dashboardCard.classList.add('hidden');
-        dashboardBtn.textContent = 'Dashboard';
-      }
-    });
-  }
 });
