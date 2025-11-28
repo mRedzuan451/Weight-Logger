@@ -184,7 +184,7 @@ function renderUsers() {
   if (countEl) countEl.textContent = `${users.length} user(s)`;
 
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500">No users found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-gray-500">No users found.</td></tr>';
     return;
   }
 
@@ -196,6 +196,7 @@ function renderUsers() {
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">${user.username}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${user.displayName || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${user.employeeId || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm ${user.role === 'admin' ? 'text-red-700 font-semibold' : 'text-gray-700'}">${user.role || 'user'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm ${active ? 'text-green-700' : 'text-gray-400'}">${active ? 'Active' : 'Inactive'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700 space-x-2">
@@ -278,12 +279,14 @@ window.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const usernameEl = document.getElementById('user-username');
     const displayEl = document.getElementById('user-display-name');
+    const employeeIdEl = document.getElementById('user-employee-id');
     const roleEl = document.getElementById('user-role');
     const pwdEl = document.getElementById('user-password');
     if (!usernameEl || !roleEl || !pwdEl) return;
 
     const username = usernameEl.value.trim();
     const displayName = (displayEl?.value || '').trim();
+    const employeeId = (employeeIdEl?.value || '').trim();
     const role = roleEl.value === 'admin' ? 'admin' : 'user';
     const password = pwdEl.value;
 
@@ -302,6 +305,7 @@ window.addEventListener('DOMContentLoaded', () => {
     users.push({
       username,
       displayName: displayName || username,
+      employeeId: employeeId || username,
       role,
       active: true,
       passwordHash: makePasswordHash(username, password),
@@ -311,6 +315,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     usernameEl.value = '';
     if (displayEl) displayEl.value = '';
+    if (employeeIdEl) employeeIdEl.value = '';
     pwdEl.value = '';
     roleEl.value = 'user';
     showStatus('User created.', false);

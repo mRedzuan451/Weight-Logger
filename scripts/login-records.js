@@ -64,7 +64,7 @@ function readHistory() {
 function showEmpty(message) {
   bodyEl.innerHTML = `
     <tr>
-      <td colspan="4" class="py-6 text-center text-gray-500">${message}</td>
+      <td colspan="3" class="py-6 text-center text-gray-500">${message}</td>
     </tr>`;
 }
 
@@ -89,7 +89,6 @@ function renderPage() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.name || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.employeeId || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record.displayName || '--'}</td>
     `;

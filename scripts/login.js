@@ -80,6 +80,7 @@ function setCurrentUser(user) {
   const username = (user?.username || '').trim();
   const displayName = (user?.displayName || username || '').trim();
   const role = user?.role || 'user';
+  const employeeId = (user?.employeeId || username || '').trim();
 
   const payload = {
     username,
@@ -87,7 +88,7 @@ function setCurrentUser(user) {
     role,
     // keep legacy fields so older pages using name/employeeId still work
     name: username,
-    employeeId: username,
+    employeeId,
     at: new Date().toISOString(),
   };
 
@@ -96,6 +97,7 @@ function setCurrentUser(user) {
   recordLoginHistory({
     username,
     displayName,
+    employeeId,
     role,
     timestamp: payload.at,
   });
@@ -201,7 +203,7 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    setCurrentUser({ username: user.username, displayName: user.displayName, role: user.role });
+    setCurrentUser({ username: user.username, displayName: user.displayName, employeeId: user.employeeId, role: user.role });
     window.location.href = getReturnUrl();
   });
 });
