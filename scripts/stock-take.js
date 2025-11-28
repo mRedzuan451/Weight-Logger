@@ -905,12 +905,12 @@ function printStockTakeReport() {
       const totalDiffQty = g.actualQty - g.expectedQty;
       const totalDiffWeight = g.actualWeight - g.expectedWeight;
 
-      const expectedQtyText = Number.isFinite(g.expectedQty) ? g.expectedQty.toFixed(0) : '';
-      const actualQtyText = Number.isFinite(g.actualQty) ? g.actualQty.toFixed(0) : '';
-      const diffQtyText = Number.isFinite(totalDiffQty) ? totalDiffQty.toFixed(0) : '';
-      const expectedWeightText = Number.isFinite(g.expectedWeight) ? `${g.expectedWeight.toFixed(2)} g` : '';
-      const actualWeightText = Number.isFinite(g.actualWeight) ? `${g.actualWeight.toFixed(2)} g` : '';
-      const diffWeightText = Number.isFinite(totalDiffWeight) ? `${totalDiffWeight.toFixed(2)} g` : '';
+      const expectedQtyText = Number.isFinite(g.expectedQty) ? formatNumber(g.expectedQty, 0) : '';
+      const actualQtyText = Number.isFinite(g.actualQty) ? formatNumber(g.actualQty, 0) : '';
+      const diffQtyText = Number.isFinite(totalDiffQty) ? formatNumber(totalDiffQty, 0) : '';
+      const expectedWeightText = Number.isFinite(g.expectedWeight) ? `${formatNumber(g.expectedWeight, 2)} g` : '';
+      const actualWeightText = Number.isFinite(g.actualWeight) ? `${formatNumber(g.actualWeight, 2)} g` : '';
+      const diffWeightText = Number.isFinite(totalDiffWeight) ? `${formatNumber(totalDiffWeight, 2)} g` : '';
 
       return `
         <tr>
