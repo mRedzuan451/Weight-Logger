@@ -31,19 +31,26 @@ function getCurrentUser() {
 }
 
 function getFilteredAndSortedRows() {
-  const query = (searchInput?.value || '').trim().toLowerCase();
+  const rawQuery = (searchInput?.value || '').trim().toLowerCase();
 
   let rows = allRows.slice();
-  if (query) {
-    rows = rows.filter(r => {
-      return (
-        String(r.labelId || '').toLowerCase().includes(query) ||
-        String(r.itemName || '').toLowerCase().includes(query) ||
-        String(r.itemId || '').toLowerCase().includes(query) ||
-        String(r.lotNo || '').toLowerCase().includes(query) ||
-        String(r.manufacturingLot || '').toLowerCase().includes(query)
-      );
-    });
+  if (rawQuery) {
+    const terms = rawQuery.split(/\s+/).filter(Boolean);
+    if (terms.length) {
+      rows = rows.filter(r => {
+        const fieldStrings = [
+          r.labelId,
+          r.itemName,
+          r.itemId,
+          r.lotNo,
+          r.manufacturingLot,
+        ].map(v => String(v || '').toLowerCase());
+
+        return terms.every(term =>
+          fieldStrings.some(value => value.includes(term))
+        );
+      });
+    }
   }
 
   const { key, direction } = currentSort;

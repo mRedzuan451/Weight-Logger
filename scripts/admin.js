@@ -414,22 +414,29 @@ function applyFilter() {
   const start = fromStart ?? null;
   const end = (toStart !== null) ? toEnd : null;
   const searchInput = document.getElementById('admin-search');
-  const query = (searchInput && searchInput.value ? searchInput.value : '').trim().toLowerCase();
+  const rawQuery = (searchInput && searchInput.value ? searchInput.value : '').trim().toLowerCase();
 
   const all = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
   let filtered = all.filter(r => withinDateRange(r.timestamp, start, end));
 
-  if (query) {
-    filtered = filtered.filter(r => {
-      const fields = [
-        r.labelId,
-        r.itemName,
-        r.quantity,
-        r.responsibleUser,
-        r.type,
-      ];
-      return fields.some(f => String(f || '').toLowerCase().includes(query));
-    });
+  if (rawQuery) {
+    const terms = rawQuery.split(/\s+/).filter(Boolean);
+    if (terms.length) {
+      filtered = filtered.filter(r => {
+        const fieldStrings = [
+          r.labelId,
+          r.itemName,
+          r.quantity,
+          r.responsibleUser,
+          r.type,
+        ].map(f => String(f || '').toLowerCase());
+
+        // every term must match at least one field
+        return terms.every(term =>
+          fieldStrings.some(value => value.includes(term))
+        );
+      });
+    }
   }
 
   render(filtered);
