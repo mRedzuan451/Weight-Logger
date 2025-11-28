@@ -848,6 +848,19 @@ function printStockTakeReport() {
     const now = new Date();
     const dateStr = now.toLocaleDateString();
     const timeStr = now.toLocaleTimeString();
+    const currentUser = getCurrentUser();
+    let generatedByText = '';
+    if (currentUser) {
+      const name = (currentUser.displayName || currentUser.name || currentUser.username || '').trim();
+      const empId = (currentUser.employeeId || currentUser.username || '').trim();
+      if (name && empId) {
+        generatedByText = `${name} (${empId})`;
+      } else if (name) {
+        generatedByText = name;
+      } else if (empId) {
+        generatedByText = empId;
+      }
+    }
 
     // Group items by itemId (item number)
     const groups = new Map();
@@ -957,7 +970,7 @@ function printStockTakeReport() {
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
           <div>
             <h1>Stock Record</h1>
-            <div class="subhead">Generated on ${dateStr} at ${timeStr}</div>
+            <div class="subhead">Generated on ${dateStr} at ${timeStr}${generatedByText ? ` by ${generatedByText}` : ''}</div>
           </div>
         </div>
         ${signatureHtml}
