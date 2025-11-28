@@ -587,9 +587,13 @@ window.addEventListener('DOMContentLoaded', () => {
     redirectToLogin();
     return;
   }
-  if (!isAdmin(user)) {
-    redirectToMenu();
-    return;
+
+  if (isAdmin(user)) {
+    const clearBtn = document.getElementById('clear-data-btn');
+    if (clearBtn) {
+      clearBtn.classList.remove('hidden');
+      clearBtn.style.display = 'inline-block';
+    }
   }
 
   document.getElementById('logout-btn')?.addEventListener('click', handleLogout);

@@ -13,9 +13,9 @@
 <body class="min-h-screen font-sans bg-gray-100 p-6">
   <div class="w-full max-w-6xl mx-auto mt-6 space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-3xl font-bold text-gray-800">Admin: User Accounts</h1>
+      <h1 class="text-3xl font-bold text-gray-800">Admin: User Accounts &amp; Login Records</h1>
       <div class="flex gap-2 flex-wrap justify-center sm:justify-end">
-        <a href="./admin.html" class="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Back to Admin</a>
+        <a href="./admin.html" class="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">History Logs</a>
         <a href="./menu.html" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Menu</a>
       </div>
     </div>
@@ -82,9 +82,41 @@
         </table>
       </div>
     </div>
+
+    <!-- Login Records (moved from login-records.html) -->
+    <div class="bg-white p-4 rounded-lg shadow">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3 border-b pb-2">
+        <h2 class="text-xl font-semibold text-gray-800">Login Activity</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <div class="max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Name</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Employee ID</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Display</th>
+              </tr>
+            </thead>
+            <tbody id="login-records-body" class="bg-white divide-y divide-gray-200">
+              <tr>
+                <td colspan="4" class="py-6 text-center text-gray-500">Loading records...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div id="pagination-controls" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t" style="display: none;">
+        <button id="prev-page-btn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:opacity-50" disabled>&larr; Previous</button>
+        <span id="page-info" class="text-gray-700 font-medium text-center">Page 1 of 1</span>
+        <button id="next-page-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:opacity-50" disabled>Next &rarr;</button>
+      </div>
+    </div>
   </div>
 
   <script src="./scripts/sw-register.js" defer></script>
   <script src="./scripts/users.js" defer></script>
+  <script src="./scripts/login-records.js" defer></script>
 </body>
 </html>
