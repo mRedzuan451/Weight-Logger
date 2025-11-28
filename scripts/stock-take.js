@@ -296,6 +296,7 @@ function loadInStockItems() {
 
       stockItems.push({
         labelId,
+        itemId: inRec.itemId || '--',
         itemName: inRec.itemName || '--',
         status,
         expectedQty: !Number.isNaN(expectedQty) ? expectedQty : null,
@@ -673,6 +674,7 @@ function updateStockTakeRow(expected, diff, withinTolerance) {
 
   const updated = {
     labelId,
+    itemId: baseItem.itemId || '',
     itemName,
     status,
     expectedWeight,
@@ -847,66 +849,72 @@ function printStockTakeReport() {
     const dateStr = now.toLocaleDateString();
     const timeStr = now.toLocaleTimeString();
 
-    const rowsHtml = stockItems.map((item, index) => {
-      const expectedQtyText = typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)
-        ? item.expectedQty.toFixed(0)
-        : '';
-      const actualQtyText = typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)
-        ? item.actualQty.toFixed(0)
-        : '';
-      const expectedWeightText = typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)
-        ? `${item.expectedWeight.toFixed(2)} ${item.unit}`
-        : '';
-      const actualWeightText = typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)
-        ? `${item.actualWeight.toFixed(2)} g`
-        : '';
-      const diffText = typeof item.diff === 'number' && !Number.isNaN(item.diff)
-        ? `${item.diff.toFixed(2)} g`
-        : '';
+    // Group items by itemId (item number)
+    const groups = new Map();
+    for (const item of stockItems) {
+      const itemId = (item.itemId || '').toString() || '--';
+      if (!itemId) continue;
+      if (!groups.has(itemId)) {
+        groups.set(itemId, {
+          itemId,
+          itemName: item.itemName || '',
+          expectedQty: 0,
+          actualQty: 0,
+          expectedWeight: 0,
+          actualWeight: 0,
+        });
+      }
+      const g = groups.get(itemId);
+      if (typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)) {
+        g.expectedQty += item.expectedQty;
+      }
+      if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
+        g.actualQty += item.actualQty;
+      }
+      if (typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)) {
+        g.expectedWeight += item.expectedWeight;
+      }
+      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
+        g.actualWeight += item.actualWeight;
+      }
+    }
+
+    const grouped = Array.from(groups.values());
+    grouped.sort((a, b) => {
+      const aId = a.itemId.toString().toLowerCase();
+      const bId = b.itemId.toString().toLowerCase();
+      if (aId < bId) return -1;
+      if (aId > bId) return 1;
+      return 0;
+    });
+
+    const rowsHtml = grouped.map((g, index) => {
+      const totalDiffQty = g.actualQty - g.expectedQty;
+      const totalDiffWeight = g.actualWeight - g.expectedWeight;
+
+      const expectedQtyText = Number.isFinite(g.expectedQty) ? g.expectedQty.toFixed(0) : '';
+      const actualQtyText = Number.isFinite(g.actualQty) ? g.actualQty.toFixed(0) : '';
+      const diffQtyText = Number.isFinite(totalDiffQty) ? totalDiffQty.toFixed(0) : '';
+      const expectedWeightText = Number.isFinite(g.expectedWeight) ? `${g.expectedWeight.toFixed(2)} g` : '';
+      const actualWeightText = Number.isFinite(g.actualWeight) ? `${g.actualWeight.toFixed(2)} g` : '';
+      const diffWeightText = Number.isFinite(totalDiffWeight) ? `${totalDiffWeight.toFixed(2)} g` : '';
 
       return `
         <tr>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:center;">${index + 1}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${item.labelId || ''}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${item.itemName || ''}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${g.itemId}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${g.itemName}</td>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedQtyText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedWeightText}</td>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualQtyText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffQtyText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedWeightText}</td>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualWeightText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffWeightText}</td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
         </tr>
       `;
     }).join('');
-
-    let totalExpectedQty = 0;
-    let totalActualQty = 0;
-    let totalExpectedWeight = 0;
-    let totalActualWeight = 0;
-    for (const item of stockItems) {
-      if (typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)) {
-        totalExpectedQty += item.expectedQty;
-      }
-      if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
-        totalActualQty += item.actualQty;
-      }
-      if (typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)) {
-        totalExpectedWeight += item.expectedWeight;
-      }
-      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
-        totalActualWeight += item.actualWeight;
-      }
-    }
-
-    const totalsHtml = `
-      <tr style="background-color:#f9fafb; font-weight:600;">
-        <td colspan="3" style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt;">Total</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalExpectedQty.toFixed(0)} pcs</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalExpectedWeight.toFixed(2)} g</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalActualQty.toFixed(0)} pcs</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${totalActualWeight.toFixed(2)} g</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;"></td>
-      </tr>
-    `;
 
     const signatureHtml = `
       <div style="margin-bottom:16px; display:flex; justify-content:flex-end;">
@@ -935,9 +943,9 @@ function printStockTakeReport() {
       <html>
       <head>
         <meta charset="UTF-8" />
-        <title>Stock Take Report</title>
+        <title>Stock Record Report</title>
         <style>
-          @page { size: A4; margin: 16mm; }
+          @page { size: A4 landscape; margin: 16mm; }
           body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11pt; color: #111827; }
           h1 { font-size: 18pt; margin: 0 0 4px 0; }
           .subhead { font-size: 10pt; color: #4b5563; margin-bottom: 12px; }
@@ -948,7 +956,7 @@ function printStockTakeReport() {
       <body>
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
           <div>
-            <h1>Stock Take Report</h1>
+            <h1>Stock Record</h1>
             <div class="subhead">Generated on ${dateStr} at ${timeStr}</div>
           </div>
         </div>
@@ -957,18 +965,20 @@ function printStockTakeReport() {
           <thead>
             <tr>
               <th style="width:24px; text-align:center;">No</th>
-              <th>Label ID</th>
+              <th>Item Number</th>
               <th>Item Name</th>
-              <th style="text-align:right;">Expected Qty</th>
+              <th style="text-align:right;">Total Expected Qty</th>
+              <th style="text-align:right;">Total Actual Qty</th>
+              <th style="text-align:right;">Total Diff Qty</th>
               <th style="text-align:right;">Expected Weight</th>
-              <th style="text-align:right;">Actual Qty</th>
               <th style="text-align:right;">Actual Weight</th>
-              <th style="text-align:right;">Difference</th>
+              <th style="text-align:right;">Diff Weight</th>
+              <th>Final Judgement</th>
+              <th>Comment</th>
             </tr>
           </thead>
           <tbody>
             ${rowsHtml}
-            ${totalsHtml}
           </tbody>
         </table>
       </body>
