@@ -26,6 +26,15 @@ const BACKUP_KEYS = [
 let currentView = 'movement'; // 'movement' | 'stocktake'
 let adminSort = { key: 'timestamp', direction: 'desc' };
 
+function formatNumberAdmin(value, decimals = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 function isAdmin(user) {
   if (!user) return false;
   if (user.role === 'admin') return true;
@@ -294,22 +303,22 @@ function render(records) {
       const tr = document.createElement('tr');
       const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
       const qtyBeforeText = typeof r.quantityBefore === 'number' && !Number.isNaN(r.quantityBefore)
-        ? r.quantityBefore.toFixed(0)
+        ? formatNumberAdmin(r.quantityBefore, 0)
         : '--';
       const qtyAfterText = typeof r.quantityAfter === 'number' && !Number.isNaN(r.quantityAfter)
-        ? r.quantityAfter.toFixed(0)
+        ? formatNumberAdmin(r.quantityAfter, 0)
         : '--';
       const beforeText = typeof r.weightBefore === 'number'
-        ? `${r.weightBefore.toFixed(2)} ${r.unitBefore || 'g'}`
+        ? `${formatNumberAdmin(r.weightBefore, 2)} ${r.unitBefore || 'g'}`
         : '--';
       const afterText = typeof r.weightAfter === 'number'
-        ? `${r.weightAfter.toFixed(2)} ${r.unitAfter || 'g'}`
+        ? `${formatNumberAdmin(r.weightAfter, 2)} ${r.unitAfter || 'g'}`
         : '--';
       const diff = (typeof r.weightBefore === 'number' && typeof r.weightAfter === 'number')
         ? (r.weightAfter - r.weightBefore)
         : null;
       const diffText = typeof diff === 'number' && !Number.isNaN(diff)
-        ? `${diff.toFixed(2)} g`
+        ? `${formatNumberAdmin(diff, 2)} g`
         : '--';
       const diffClass = typeof diff === 'number' && !Number.isNaN(diff) && Math.abs(diff) > 5
         ? 'text-red-600 font-bold'
@@ -349,11 +358,11 @@ function render(records) {
     totalTr.className = 'bg-gray-50';
     totalTr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="3">Total</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQtyBefore.toFixed(0)}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeightBefore.toFixed(2)} g</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQtyAfter.toFixed(0)}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeightAfter.toFixed(2)} g</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalDiff.toFixed(2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalQtyBefore, 0)}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalWeightBefore, 2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalQtyAfter, 0)}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalWeightAfter, 2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalDiff, 2)} g</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
     `;
     tbody.appendChild(totalTr);
@@ -366,7 +375,7 @@ function render(records) {
   for (const r of sortedRecords) {
     const tr = document.createElement('tr');
     const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
-    const weight = typeof r.weight === 'number' ? r.weight.toFixed(2) : '--';
+    const weight = typeof r.weight === 'number' ? formatNumberAdmin(r.weight, 2) : '--';
     const typeColor = r.type === 'IN' ? '#047857' : '#b91c1c'; // green vs red
 
     const qtyVal = typeof r.quantity === 'number'
@@ -381,12 +390,16 @@ function render(records) {
       totalWeight += r.weight;
     }
 
+    const qtyText = typeof qtyVal === 'number' && !Number.isNaN(qtyVal)
+      ? formatNumberAdmin(qtyVal, 0)
+      : (r.quantity || '');
+
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold" style="color: ${typeColor};">${r.type}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.quantity || ''}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyText}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${weight}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.unit}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.responsibleUser}</td>
@@ -398,8 +411,8 @@ function render(records) {
   totalTr.className = 'bg-gray-50';
   totalTr.innerHTML = `
     <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="4">Total</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQty.toFixed(0)}</td>
-    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalQty, 0)}</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalWeight, 2)} g</td>
     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
   `;
