@@ -284,6 +284,12 @@ function render(records) {
   cachedRecords = sortedRecords;
 
   if (currentView === 'stocktake') {
+    let totalQtyBefore = 0;
+    let totalQtyAfter = 0;
+    let totalWeightBefore = 0;
+    let totalWeightAfter = 0;
+    let totalDiff = 0;
+
     for (const r of sortedRecords) {
       const tr = document.createElement('tr');
       const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
@@ -309,6 +315,22 @@ function render(records) {
         ? 'text-red-600 font-bold'
         : 'text-gray-700';
 
+      if (typeof r.quantityBefore === 'number' && !Number.isNaN(r.quantityBefore)) {
+        totalQtyBefore += r.quantityBefore;
+      }
+      if (typeof r.quantityAfter === 'number' && !Number.isNaN(r.quantityAfter)) {
+        totalQtyAfter += r.quantityAfter;
+      }
+      if (typeof r.weightBefore === 'number' && !Number.isNaN(r.weightBefore)) {
+        totalWeightBefore += r.weightBefore;
+      }
+      if (typeof r.weightAfter === 'number' && !Number.isNaN(r.weightAfter)) {
+        totalWeightAfter += r.weightAfter;
+      }
+      if (typeof diff === 'number' && !Number.isNaN(diff)) {
+        totalDiff += diff;
+      }
+
       tr.innerHTML = `
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId || '--'}</td>
@@ -322,14 +344,43 @@ function render(records) {
       `;
       tbody.appendChild(tr);
     }
+
+    const totalTr = document.createElement('tr');
+    totalTr.className = 'bg-gray-50';
+    totalTr.innerHTML = `
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="3">Total</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQtyBefore.toFixed(0)}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeightBefore.toFixed(2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQtyAfter.toFixed(0)}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeightAfter.toFixed(2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalDiff.toFixed(2)} g</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+    `;
+    tbody.appendChild(totalTr);
     return;
   }
+
+  let totalQty = 0;
+  let totalWeight = 0;
 
   for (const r of sortedRecords) {
     const tr = document.createElement('tr');
     const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
     const weight = typeof r.weight === 'number' ? r.weight.toFixed(2) : '--';
     const typeColor = r.type === 'IN' ? '#047857' : '#b91c1c'; // green vs red
+
+    const qtyVal = typeof r.quantity === 'number'
+      ? r.quantity
+      : (r.quantity != null && r.quantity !== '' && !Number.isNaN(Number(r.quantity))
+        ? Number(r.quantity)
+        : null);
+    if (typeof qtyVal === 'number' && !Number.isNaN(qtyVal)) {
+      totalQty += qtyVal;
+    }
+    if (typeof r.weight === 'number' && !Number.isNaN(r.weight)) {
+      totalWeight += r.weight;
+    }
+
     tr.innerHTML = `
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold" style="color: ${typeColor};">${r.type}</td>
@@ -342,6 +393,17 @@ function render(records) {
     `;
     tbody.appendChild(tr);
   }
+
+  const totalTr = document.createElement('tr');
+  totalTr.className = 'bg-gray-50';
+  totalTr.innerHTML = `
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="4">Total</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalQty.toFixed(0)}</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${totalWeight.toFixed(2)} g</td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700"></td>
+  `;
+  tbody.appendChild(totalTr);
 
   updateAdminSortIndicators();
 }
