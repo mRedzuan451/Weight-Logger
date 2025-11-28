@@ -808,15 +808,22 @@ window.addEventListener('DOMContentLoaded', () => {
   qrInput.focus();
 
   if (tableBody) {
-    const headerRow = tableBody.parentElement?.previousElementSibling?.querySelector('tr');
-    if (headerRow) {
-      stockTakeHeaderCells = Array.from(headerRow.querySelectorAll('th'));
-      stockTakeHeaderCells.forEach((th, index) => {
-        const key = stockTakeSortKeys[index];
-        if (!key) return;
-        th.addEventListener('click', () => setStockTakeSort(key));
-      });
-      updateStockTakeSortIndicators();
+    // Find the table element that contains the table body
+    const table = tableBody.closest('table');
+    if (table) {
+      // Find the thead > tr that contains the header cells
+      const headerRow = table.querySelector('thead tr');
+      if (headerRow) {
+        stockTakeHeaderCells = Array.from(headerRow.querySelectorAll('th'));
+        stockTakeHeaderCells.forEach((th, index) => {
+          const key = stockTakeSortKeys[index];
+          if (!key) return;
+          th.style.cursor = 'pointer';
+          th.style.userSelect = 'none';
+          th.addEventListener('click', () => setStockTakeSort(key));
+        });
+        updateStockTakeSortIndicators();
+      }
     }
   }
 });
