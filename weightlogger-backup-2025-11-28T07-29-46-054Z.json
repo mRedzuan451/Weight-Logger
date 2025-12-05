@@ -1,0 +1,484 @@
+{
+  "app": "WeightLogger",
+  "schemaVersion": 1,
+  "createdAt": "2025-11-28T07:29:46.053Z",
+  "data": {
+    "weight_records": [
+      {
+        "labelId": "A4P202408084661",
+        "itemId": "9524023-7",
+        "itemName": "G2RL-2-AP CON,MOV.2C",
+        "lotNo": "UG1774057",
+        "manufacturingLot": "",
+        "quantity": "20000",
+        "originalQrData": {
+          "id": "A4P202408084661",
+          "item": "9524023-7",
+          "name": "G2RL-2-AP CON,MOV.2C",
+          "haz": "N",
+          "recd": "20240719",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "",
+          "detail": [
+            "1,0002950990,999,UG1774057,20000"
+          ]
+        },
+        "measuredWeight": 112.96,
+        "unit": "g",
+        "timestamp": "2025-11-24T06:19:06.662Z",
+        "responsibleUser": "Test User"
+      },
+      {
+        "labelId": "A4P202408084327",
+        "itemId": "9523990-5",
+        "itemName": "G2RL-CV CONT. MOV.",
+        "lotNo": "2024080803",
+        "manufacturingLot": "C240806-0807-N031-8",
+        "quantity": "41040",
+        "originalQrData": {
+          "id": "A4P202408084327",
+          "item": "9523990-5",
+          "name": "G2RL-CV CONT. MOV.",
+          "haz": "N",
+          "recd": "20240808",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "C240806-0807-N031-8",
+          "detail": [
+            "1,288844,1,2024080803,41040.000000"
+          ]
+        },
+        "measuredWeight": 109.33,
+        "unit": "g",
+        "timestamp": "2025-11-24T06:19:17.210Z",
+        "responsibleUser": "Test User"
+      },
+      {
+        "labelId": "A4P202407125363",
+        "itemId": "2836929-2",
+        "itemName": "G6RN-1 STA CONT A (T",
+        "lotNo": "2024071201",
+        "manufacturingLot": "c240614-0710-wh002-6",
+        "quantity": "53030",
+        "originalQrData": {
+          "id": "A4P202407125363",
+          "item": "2836929-2",
+          "name": "G6RN-1 STA CONT A (T",
+          "haz": "N",
+          "recd": "20240712",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "c240614-0710-wh002-6",
+          "detail": [
+            "1,285298,1,2024071201,53030.000000"
+          ]
+        },
+        "measuredWeight": 112.95,
+        "unit": "g",
+        "timestamp": "2025-11-24T06:19:28.332Z",
+        "responsibleUser": "Test User"
+      },
+      {
+        "labelId": "A4P202408095281",
+        "itemId": "9472127-4",
+        "itemName": "G5LE1(CD) MOV CONT",
+        "lotNo": "2024080801",
+        "manufacturingLot": "C240723-0731-N026-3",
+        "quantity": "19140",
+        "originalQrData": {
+          "id": "A4P202408095281",
+          "item": "9472127-4",
+          "name": "G5LE1(CD) MOV CONT",
+          "haz": "N",
+          "recd": "20240808",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "C240723-0731-N026-3",
+          "detail": [
+            "1,289448,1,2024080801,19140.000000"
+          ]
+        },
+        "measuredWeight": 112.96,
+        "unit": "g",
+        "timestamp": "2025-11-24T06:19:39.102Z",
+        "responsibleUser": "Test User"
+      },
+      {
+        "labelId": "A4P202408085338",
+        "itemId": "9472396-0",
+        "itemName": "G2RL-1 CONT, STA 1A",
+        "lotNo": "2024080606",
+        "manufacturingLot": "0874CG011-A1",
+        "quantity": "10000",
+        "originalQrData": {
+          "id": "A4P202408085338",
+          "item": "9472396-0",
+          "name": "G2RL-1 CONT, STA 1A",
+          "haz": "N",
+          "recd": "20240806",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "0874CG011-A1",
+          "detail": [
+            "1,287933,1,2024080606,10000.000000"
+          ]
+        },
+        "measuredWeight": 155.13,
+        "unit": "g",
+        "timestamp": "2025-11-28T06:32:59.260Z",
+        "responsibleUser": "Administrator"
+      },
+      {
+        "labelId": "A4P202408223013",
+        "itemId": "9524057-1",
+        "itemName": "G2RL-1 STA 1A CONT",
+        "lotNo": "2024073107",
+        "manufacturingLot": "c240724-0730-n016-86",
+        "quantity": "15169",
+        "originalQrData": {
+          "id": "A4P202408223013",
+          "item": "9524057-1",
+          "name": "G2RL-1 STA 1A CONT",
+          "haz": "N",
+          "recd": "20240731",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "c240724-0730-n016-86",
+          "detail": [
+            "1,287857,1,2024073107,15169.000000"
+          ]
+        },
+        "measuredWeight": 155.14,
+        "unit": "g",
+        "timestamp": "2025-11-28T06:33:09.819Z",
+        "responsibleUser": "Administrator"
+      },
+      {
+        "labelId": "A4P202408303793",
+        "itemId": "9524057-1",
+        "itemName": "G2RL-1 STA 1A CONT",
+        "lotNo": "2024082903",
+        "manufacturingLot": "c240809-0816-n016-67",
+        "quantity": "300",
+        "originalQrData": {
+          "id": "A4P202408303793",
+          "item": "9524057-1",
+          "name": "G2RL-1 STA 1A CONT",
+          "haz": "N",
+          "recd": "20240829",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "c240809-0816-n016-67",
+          "detail": [
+            "1,288322,1,2024082903,300.000000"
+          ]
+        },
+        "measuredWeight": 67.17,
+        "unit": "g",
+        "timestamp": "2025-11-28T06:33:23.675Z",
+        "responsibleUser": "Administrator"
+      },
+      {
+        "labelId": "A4P202509183441",
+        "itemId": "9523990-5",
+        "itemName": "G2RL-CV CONT. MOV.",
+        "lotNo": "2025091003",
+        "manufacturingLot": "c250809-0815-n022-22",
+        "quantity": "12910",
+        "originalQrData": {
+          "id": "A4P202509183441",
+          "item": "9523990-5",
+          "name": "G2RL-CV CONT. MOV.",
+          "haz": "N",
+          "recd": "20250910",
+          "mfgd": "",
+          "mix": "N",
+          "mfglot": "c250809-0815-n022-22",
+          "detail": [
+            "1,305313,1,2025091003,12910.000000"
+          ]
+        },
+        "measuredWeight": 109.33,
+        "unit": "g",
+        "timestamp": "2025-11-28T06:33:48.669Z",
+        "responsibleUser": "Administrator"
+      }
+    ],
+    "stock_out_records": null,
+    "stock_take_history": [
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408084661",
+        "itemName": "G2RL-2-AP CON,MOV.2C",
+        "itemId": "9524023-7",
+        "lotNo": "UG1774057",
+        "manufacturingLot": "--",
+        "quantityBefore": 20000,
+        "quantityAfter": 20571.844837006007,
+        "weightBefore": 109.82,
+        "unitBefore": "g",
+        "weightAfter": 112.96,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408084327",
+        "itemName": "G2RL-CV CONT. MOV.",
+        "itemId": "9523990-5",
+        "lotNo": "2024080803",
+        "manufacturingLot": "C240806-0807-N031-8",
+        "quantityBefore": 41040,
+        "quantityAfter": 40856.885813148794,
+        "weightBefore": 109.82,
+        "unitBefore": "g",
+        "weightAfter": 109.33,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202407125363",
+        "itemName": "G6RN-1 STA CONT A (T",
+        "itemId": "2836929-2",
+        "lotNo": "2024071201",
+        "manufacturingLot": "c240614-0710-wh002-6",
+        "quantityBefore": 53030,
+        "quantityAfter": 54546.384664420366,
+        "weightBefore": 109.81,
+        "unitBefore": "g",
+        "weightAfter": 112.95,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408095281",
+        "itemName": "G5LE1(CD) MOV CONT",
+        "itemId": "9472127-4",
+        "lotNo": "2024080801",
+        "manufacturingLot": "C240723-0731-N026-3",
+        "quantityBefore": 19140,
+        "quantityAfter": 19689.048356251707,
+        "weightBefore": 109.81,
+        "unitBefore": "g",
+        "weightAfter": 112.96,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408085338",
+        "itemName": "G2RL-1 CONT, STA 1A",
+        "itemId": "9472396-0",
+        "lotNo": "2024080606",
+        "manufacturingLot": "0874CG011-A1",
+        "quantityBefore": 10000,
+        "quantityAfter": 10000.64466219701,
+        "weightBefore": 155.12,
+        "unitBefore": "g",
+        "weightAfter": 155.13,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408223013",
+        "itemName": "G2RL-1 STA 1A CONT",
+        "itemId": "9524057-1",
+        "lotNo": "2024073107",
+        "manufacturingLot": "c240724-0730-n016-86",
+        "quantityBefore": 15169,
+        "quantityAfter": 15171.933853394363,
+        "weightBefore": 155.11,
+        "unitBefore": "g",
+        "weightAfter": 155.14,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202408303793",
+        "itemName": "G2RL-1 STA 1A CONT",
+        "itemId": "9524057-1",
+        "lotNo": "2024082903",
+        "manufacturingLot": "c240809-0816-n016-67",
+        "quantityBefore": 300,
+        "quantityAfter": 300.1340482573726,
+        "weightBefore": 67.14,
+        "unitBefore": "g",
+        "weightAfter": 67.17,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      },
+      {
+        "timestamp": "2025-11-28T07:12:29.547Z",
+        "labelId": "A4P202509183441",
+        "itemName": "G2RL-CV CONT. MOV.",
+        "itemId": "9523990-5",
+        "lotNo": "2025091003",
+        "manufacturingLot": "c250809-0815-n022-22",
+        "quantityBefore": 12910,
+        "quantityAfter": 12910,
+        "weightBefore": 109.33,
+        "unitBefore": "g",
+        "weightAfter": 109.33,
+        "unitAfter": "g",
+        "responsibleUser": "Test User"
+      }
+    ],
+    "stock_take_state": null,
+    "login_history": [
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-24T06:02:38.904Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-24T06:18:20.208Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-24T06:19:58.718Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-24T07:40:03.842Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-24T07:43:13.263Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-24T08:38:09.702Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-26T00:47:38.105Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-26T03:33:15.734Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-26T06:55:20.008Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-28T02:16:32.193Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-28T02:18:40.577Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-28T02:23:19.243Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-28T02:23:24.192Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "timestamp": "2025-11-28T02:26:56.496Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "timestamp": "2025-11-28T02:37:59.697Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "employeeId": "admin",
+        "role": "admin",
+        "timestamp": "2025-11-28T02:43:04.676Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "employeeId": "admin",
+        "role": "admin",
+        "timestamp": "2025-11-28T07:01:10.009Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "employeeId": "tester",
+        "role": "user",
+        "timestamp": "2025-11-28T07:01:26.645Z"
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "employeeId": "tester",
+        "role": "user",
+        "timestamp": "2025-11-28T07:29:36.065Z"
+      },
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "employeeId": "admin",
+        "role": "admin",
+        "timestamp": "2025-11-28T07:29:41.648Z"
+      }
+    ],
+    "user_accounts": [
+      {
+        "username": "admin",
+        "displayName": "Administrator",
+        "role": "admin",
+        "active": true,
+        "passwordHash": "YWRtaW46YWRtaW4xMjM="
+      },
+      {
+        "username": "tester",
+        "displayName": "Test User",
+        "role": "user",
+        "active": true,
+        "passwordHash": "dGVzdGVyOjEyMzQ="
+      },
+      {
+        "username": "test2",
+        "displayName": "2nd User",
+        "employeeId": "1234",
+        "role": "user",
+        "active": true,
+        "passwordHash": "dGVzdDI6MTIzNA=="
+      }
+    ]
+  }
+}

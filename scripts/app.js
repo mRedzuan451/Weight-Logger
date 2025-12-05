@@ -42,10 +42,8 @@ function hasActiveStockInForLabel(labelId) {
     try {
         if (!labelId) return false;
 
-        const insRaw = localStorage.getItem('weight_records');
-        const outsRaw = localStorage.getItem('stock_out_records');
-        const ins = insRaw ? JSON.parse(insRaw) : [];
-        const outs = outsRaw ? JSON.parse(outsRaw) : [];
+        const ins = getWeightRecordsArray();
+        const outs = getStockOutRecordsArray();
         if (!Array.isArray(ins) && !Array.isArray(outs)) return false;
 
         const events = [];
@@ -143,15 +141,51 @@ function getCurrentUser() {
     }
 }
 
+let weightRecordsCache = null;
+let stockOutRecordsCache = null;
+
+function safeParseArray(text) {
+    try {
+        const parsed = text ? JSON.parse(text) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function getWeightRecordsArray() {
+    if (!weightRecordsCache) {
+        const raw = localStorage.getItem('weight_records');
+        weightRecordsCache = safeParseArray(raw);
+    }
+    return weightRecordsCache;
+}
+
+function saveWeightRecordsArray(records) {
+    const arr = Array.isArray(records) ? records : [];
+    weightRecordsCache = arr;
+    try {
+        localStorage.setItem('weight_records', JSON.stringify(arr));
+    } catch (err) {
+        console.error('Error saving weight_records:', err);
+    }
+}
+
+function getStockOutRecordsArray() {
+    if (!stockOutRecordsCache) {
+        const raw = localStorage.getItem('stock_out_records');
+        stockOutRecordsCache = safeParseArray(raw);
+    }
+    return stockOutRecordsCache;
+}
+
 function applyPartialPacketLogic(scanned) {
     try {
         const labelId = (scanned && scanned.labelId) || '';
         if (!labelId) return scanned;
 
-        const insRaw = localStorage.getItem('weight_records');
-        const outsRaw = localStorage.getItem('stock_out_records');
-        const ins = insRaw ? JSON.parse(insRaw) : [];
-        const outs = outsRaw ? JSON.parse(outsRaw) : [];
+        const ins = getWeightRecordsArray();
+        const outs = getStockOutRecordsArray();
         if (!Array.isArray(ins) || !Array.isArray(outs)) return scanned;
 
         const inForLabel = ins.filter(r => r && r.labelId === labelId);
@@ -715,13 +749,15 @@ saveRecordBtn.addEventListener('click', async () => {
             responsibleUser: currentUser.displayName || currentUser.name || currentUser.username || ''
         };
 
-        const storedRecords = localStorage.getItem('weight_records');
-        let records = storedRecords ? JSON.parse(storedRecords) : [];
+        let records = getWeightRecordsArray();
+        if (!Array.isArray(records)) {
+            records = [];
+        }
 
         records.push(record);
         records = pruneOldRecords(records);
 
-        localStorage.setItem('weight_records', JSON.stringify(records));
+        saveWeightRecordsArray(records);
 
         showStatusMessage('Record saved successfully!', false);
         resetForm();
@@ -740,11 +776,10 @@ saveRecordBtn.addEventListener('click', async () => {
 function loadRecords() {
     let loadedDocs = [];
     try {
-        const storedRecords = localStorage.getItem('weight_records');
-        loadedDocs = storedRecords ? JSON.parse(storedRecords) : [];
-        const prunedDocs = pruneOldRecords(loadedDocs);
-        if (prunedDocs.length !== loadedDocs.length) {
-            localStorage.setItem('weight_records', JSON.stringify(prunedDocs));
+        const storedRecords = getWeightRecordsArray();
+        const prunedDocs = pruneOldRecords(storedRecords);
+        if (prunedDocs.length !== storedRecords.length) {
+            saveWeightRecordsArray(prunedDocs);
         }
         loadedDocs = prunedDocs;
     } catch (error) {

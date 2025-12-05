@@ -83,6 +83,28 @@ function readLocal(key) {
 }
 
 let cachedRecords = [];
+let movementBaseRecords = null;
+let stockTakeBaseRecords = null;
+
+function getMovementBaseRecords() {
+  if (!movementBaseRecords) {
+    movementBaseRecords = loadCombinedRecords();
+  }
+  return movementBaseRecords;
+}
+
+function getStockTakeBaseRecords() {
+  if (!stockTakeBaseRecords) {
+    stockTakeBaseRecords = loadStockTakeHistory();
+  }
+  return stockTakeBaseRecords;
+}
+
+function invalidateBaseCaches() {
+  movementBaseRecords = null;
+  stockTakeBaseRecords = null;
+  cachedRecords = [];
+}
 
 function loadCombinedRecords() {
   const ins = readLocal('weight_records');
@@ -276,7 +298,7 @@ function setView(view) {
   if ((fromDateEl && fromDateEl.value) || (toDateEl && toDateEl.value) || hasSearch) {
     applyFilter();
   } else {
-    const records = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+    const records = currentView === 'stocktake' ? getStockTakeBaseRecords() : getMovementBaseRecords();
     render(records);
   }
 }
@@ -429,7 +451,7 @@ function applyFilter() {
   const searchInput = document.getElementById('admin-search');
   const rawQuery = (searchInput && searchInput.value ? searchInput.value : '').trim().toLowerCase();
 
-  const all = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+  const all = currentView === 'stocktake' ? getStockTakeBaseRecords() : getMovementBaseRecords();
   let filtered = all.filter(r => withinDateRange(r.timestamp, start, end));
 
   if (rawQuery) {
@@ -456,7 +478,7 @@ function applyFilter() {
 }
 
 function exportCsv() {
-  const base = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+  const base = currentView === 'stocktake' ? getStockTakeBaseRecords() : getMovementBaseRecords();
   const records = cachedRecords && cachedRecords.length ? cachedRecords : base;
   if (!records.length) {
     alert('No records to export.');
@@ -614,8 +636,8 @@ function restoreFromBackupObject(backup) {
       }
     }
 
-    cachedRecords = [];
-    const records = currentView === 'stocktake' ? loadStockTakeHistory() : loadCombinedRecords();
+    invalidateBaseCaches();
+    const records = currentView === 'stocktake' ? getStockTakeBaseRecords() : getMovementBaseRecords();
     render(records);
     statusMessage('Backup restored successfully.', false);
   } catch (error) {
@@ -654,7 +676,7 @@ function clearAllData() {
     localStorage.removeItem('stock_out_records');
     localStorage.removeItem(STOCK_TAKE_HISTORY_KEY);
     localStorage.removeItem('stock_take_state');
-    cachedRecords = [];
+    invalidateBaseCaches();
     render([]);
     statusMessage('All records cleared.');
   } catch (error) {
@@ -683,7 +705,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clear-filter')?.addEventListener('click', () => {
     document.getElementById('from-date').value = '';
     document.getElementById('to-date').value = '';
-    render(loadCombinedRecords());
+    render(getMovementBaseRecords());
   });
   document.getElementById('export-csv')?.addEventListener('click', exportCsv);
   document.getElementById('clear-data-btn')?.addEventListener('click', clearAllData);
@@ -716,5 +738,5 @@ window.addEventListener('DOMContentLoaded', () => {
 
   setHeaderForMovement();
   setupAdminSortHeaders();
-  render(loadCombinedRecords());
+  render(getMovementBaseRecords());
 });

@@ -62,6 +62,63 @@ function getCurrentUser() {
   }
 }
 
+let weightRecordsCache = null;
+let stockOutRecordsCache = null;
+let stockTakeHistoryCache = null;
+
+function safeParseArray(text) {
+  try {
+    const parsed = text ? JSON.parse(text) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getWeightRecordsArray() {
+  if (!weightRecordsCache) {
+    const raw = localStorage.getItem('weight_records');
+    weightRecordsCache = safeParseArray(raw);
+  }
+  return weightRecordsCache;
+}
+
+function saveWeightRecordsArray(records) {
+  const arr = Array.isArray(records) ? records : [];
+  weightRecordsCache = arr;
+  try {
+    localStorage.setItem('weight_records', JSON.stringify(arr));
+  } catch (err) {
+    console.error('Error saving weight_records:', err);
+  }
+}
+
+function getStockOutRecordsArray() {
+  if (!stockOutRecordsCache) {
+    const raw = localStorage.getItem('stock_out_records');
+    stockOutRecordsCache = safeParseArray(raw);
+  }
+  return stockOutRecordsCache;
+}
+
+function getStockTakeHistoryArray() {
+  if (!stockTakeHistoryCache) {
+    const raw = localStorage.getItem(STOCK_TAKE_HISTORY_KEY);
+    stockTakeHistoryCache = safeParseArray(raw);
+  }
+  return stockTakeHistoryCache;
+}
+
+function saveStockTakeHistoryArray(records) {
+  const arr = Array.isArray(records) ? records : [];
+  stockTakeHistoryCache = arr;
+  try {
+    localStorage.setItem(STOCK_TAKE_HISTORY_KEY, JSON.stringify(arr));
+  } catch (err) {
+    console.error('Error saving stock_take_history:', err);
+  }
+}
+
 function applyStockTakeUpdates() {
   try {
     if (!stockItems.length) {
@@ -88,8 +145,7 @@ function applyStockTakeUpdates() {
 
     const currentUser = getCurrentUser();
 
-    const insRaw = localStorage.getItem('weight_records');
-    let ins = insRaw ? JSON.parse(insRaw) : [];
+    let ins = getWeightRecordsArray();
     if (!Array.isArray(ins)) ins = [];
 
     // Find latest IN record index per label for labels we are updating
@@ -158,16 +214,15 @@ function applyStockTakeUpdates() {
       rec.unit = 'g';
     });
 
-    localStorage.setItem('weight_records', JSON.stringify(ins));
+    saveWeightRecordsArray(ins);
 
     // Append stock-take history
     if (historyEntries.length) {
       try {
-        const rawHist = localStorage.getItem(STOCK_TAKE_HISTORY_KEY);
-        let history = rawHist ? JSON.parse(rawHist) : [];
+        let history = getStockTakeHistoryArray();
         if (!Array.isArray(history)) history = [];
         history.push(...historyEntries);
-        localStorage.setItem(STOCK_TAKE_HISTORY_KEY, JSON.stringify(history));
+        saveStockTakeHistoryArray(history);
       } catch (err) {
         console.error('Error saving stock take history:', err);
       }
@@ -250,10 +305,8 @@ function loadInStockItems() {
   if (!tableBody) return;
   stockItems = [];
   try {
-    const insRaw = localStorage.getItem('weight_records');
-    const outsRaw = localStorage.getItem('stock_out_records');
-    const ins = insRaw ? JSON.parse(insRaw) : [];
-    const outs = outsRaw ? JSON.parse(outsRaw) : [];
+    const ins = getWeightRecordsArray();
+    const outs = getStockOutRecordsArray();
 
     const latestInByLabel = new Map();
     if (Array.isArray(ins)) {
@@ -698,10 +751,8 @@ function updateStockTakeRow(expected, diff, withinTolerance) {
 
 function parseExpectedFromRecords(labelId) {
   try {
-    const insRaw = localStorage.getItem('weight_records');
-    const outsRaw = localStorage.getItem('stock_out_records');
-    const ins = insRaw ? JSON.parse(insRaw) : [];
-    const outs = outsRaw ? JSON.parse(outsRaw) : [];
+    const ins = getWeightRecordsArray();
+    const outs = getStockOutRecordsArray();
     if (!Array.isArray(ins) && !Array.isArray(outs)) return null;
 
     const inForLabel = Array.isArray(ins) ? ins.filter(r => r && r.labelId === labelId) : [];
