@@ -67,6 +67,41 @@ function showStatus(message, isError = false) {
   box.className = 'px-4 py-3 rounded-lg text-sm font-semibold ' + (isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
 }
 
+function usersFormatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function usersGetApproxStorageUsageBytes() {
+  let totalChars = 0;
+  try {
+    if (typeof localStorage === 'undefined') return 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      const value = localStorage.getItem(key) || '';
+      totalChars += key.length + value.length;
+    }
+  } catch {
+    return 0;
+  }
+  return totalChars * 2;
+}
+
+function updateStorageUsageDisplay() {
+  const el = document.getElementById('storage-usage');
+  if (!el || typeof localStorage === 'undefined') return;
+  const bytes = usersGetApproxStorageUsageBytes();
+  el.textContent = `Approx. storage used: ${usersFormatBytes(bytes)} in ${localStorage.length} key(s).`;
+}
+
 function usersSafeParseJson(text) {
   try {
     return text ? JSON.parse(text) : null;
@@ -146,6 +181,7 @@ function usersRestoreFromBackupObject(backup) {
 
     renderUsers();
     showStatus('Backup restored successfully.', false);
+    updateStorageUsageDisplay();
   } catch (error) {
     console.error('Error restoring backup:', error);
     showStatus('Failed to restore backup. Check console.', true);
@@ -225,6 +261,7 @@ function handleResetPassword(username) {
   user.passwordHash = makePasswordHash(username, trimmed);
   saveUsers(users);
   showStatus('Password updated.', false);
+  updateStorageUsageDisplay();
 }
 
 function handleToggleActive(username) {
@@ -242,6 +279,7 @@ function handleToggleActive(username) {
   saveUsers(users);
   renderUsers();
   showStatus(user.active !== false ? 'User activated.' : 'User deactivated.', false);
+  updateStorageUsageDisplay();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -252,6 +290,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   renderUsers();
+  updateStorageUsageDisplay();
 
   const backupBtn = document.getElementById('users-backup-json');
   const restoreBtn = document.getElementById('users-restore-json');
@@ -319,6 +358,7 @@ window.addEventListener('DOMContentLoaded', () => {
     pwdEl.value = '';
     roleEl.value = 'user';
     showStatus('User created.', false);
+    updateStorageUsageDisplay();
   });
 
   const tbody = document.getElementById('users-body');
