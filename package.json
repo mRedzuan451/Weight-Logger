@@ -1,0 +1,38 @@
+{
+  "name": "weight-logger",
+  "version": "1.0.0",
+  "description": "Weight Logger desktop app (Electron wrapper around existing web app)",
+  "main": "main.js",
+  "author": "",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dev": "nodemon --watch . --ext html,js,css --ignore node_modules --ignore dist --exec electron .",
+    "prepare-build": "node tools/prepare-build.js",
+    "build": "npm run prepare-build && electron-builder build --dir",
+    "dist": "npm run prepare-build && electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "nodemon": "^3.1.11"
+  },
+  "build": {
+    "appId": "com.weightlogger.app",
+    "productName": "Weight Logger",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "icon": "icon.png",
+    "files": [
+      "**/*",
+      "!dist/**/*",
+      "!**/*.map",
+      "!weightlogger-backup-*.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

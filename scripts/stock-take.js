@@ -12,6 +12,32 @@ const PREFERRED_SCALE_IDS = [
   { usbVendorId: 0x0557, usbProductId: 0x2011 },
 ];
 
+function getPreferredScaleIds() {
+  try {
+    const raw = localStorage.getItem('preferred_scale_ids');
+    const parsed = raw ? JSON.parse(raw) : [];
+    const saved = Array.isArray(parsed)
+      ? parsed
+        .map((p) => ({
+          usbVendorId: typeof p?.usbVendorId === 'number' ? p.usbVendorId : null,
+          usbProductId: typeof p?.usbProductId === 'number' ? p.usbProductId : null,
+        }))
+        .filter((p) => typeof p.usbVendorId === 'number' && typeof p.usbProductId === 'number')
+      : [];
+
+    const combined = [...saved, ...PREFERRED_SCALE_IDS];
+    const seen = new Set();
+    return combined.filter((p) => {
+      const key = `${p.usbVendorId}:${p.usbProductId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch {
+    return [...PREFERRED_SCALE_IDS];
+  }
+}
+
 let scalePort = null;
 let scaleReader = null;
 let keepReadingScale = false;
@@ -557,7 +583,8 @@ function showStatus(message, isError = false) {
 function isPreferredScalePort(port) {
   if (!port || typeof port.getInfo !== 'function') return false;
   const info = port.getInfo() || {};
-  return PREFERRED_SCALE_IDS.some(({ usbVendorId, usbProductId }) => {
+  const preferredIds = getPreferredScaleIds();
+  return preferredIds.some(({ usbVendorId, usbProductId }) => {
     const vendorMatches = typeof usbVendorId === 'number' ? info.usbVendorId === usbVendorId : true;
     const productMatches = typeof usbProductId === 'number' ? info.usbProductId === usbProductId : true;
     return vendorMatches && productMatches;
@@ -633,7 +660,7 @@ async function readFromScale() {
       const { value, done } = await scaleReader.read();
       if (done) break;
       lineBuffer += value;
-      const lines = lineBuffer.split('\n');
+      const lines = lineBuffer.split(/\r\n|\n|\r/);
       lineBuffer = lines.pop() || '';
       for (const line of lines) {
         if (line.trim()) handleScaleLine(line.trim());
@@ -656,8 +683,18 @@ function handleScaleLine(data) {
   let w = NaN;
   if (parts.length >= 2) {
     w = parseFloat(parts[1]);
+    if (Number.isNaN(w) && parts.length >= 3) {
+      w = parseFloat(parts[2]);
+    }
   } else {
     w = parseFloat(data);
+  }
+
+  if (Number.isNaN(w)) {
+    const match = String(data).match(/-?\d+(?:\.\d+)?/);
+    if (match) {
+      w = parseFloat(match[0]);
+    }
   }
   if (!Number.isNaN(w)) {
     currentWeight = w;
@@ -842,7 +879,26 @@ qrInput.addEventListener('change', (e) => {
 });
 
 connectScaleBtn.addEventListener('click', () => {
-  connectPreferredScale();
+  (async () => {
+    try {
+      if ('serial' in navigator) {
+        const ports = await navigator.serial.getPorts();
+        if (!ports || !ports.length) {
+          const currentPage = (location.pathname.split('/').pop()) || 'stock-take.html';
+          const url = new URL('ports.html', window.location.href);
+          url.searchParams.set('return', currentPage);
+          const w = window.open(url.toString(), 'ports', 'width=900,height=700');
+          if (!w) {
+            window.location.href = url.toString();
+          }
+          showStatus('Open Ports window to grant serial access, then come back and click Connect again.', true);
+          return;
+        }
+      }
+    } catch {
+    }
+    connectPreferredScale();
+  })();
 });
 
 disconnectScaleBtn.addEventListener('click', () => {

@@ -23,6 +23,32 @@ const unitToGramFactor = {
     oz: 28.349523125,
 };
 
+function getPreferredScaleIds() {
+    try {
+        const raw = localStorage.getItem('preferred_scale_ids');
+        const parsed = raw ? JSON.parse(raw) : [];
+        const saved = Array.isArray(parsed)
+            ? parsed
+                  .map((p) => ({
+                      usbVendorId: typeof p?.usbVendorId === 'number' ? p.usbVendorId : null,
+                      usbProductId: typeof p?.usbProductId === 'number' ? p.usbProductId : null,
+                  }))
+                  .filter((p) => typeof p.usbVendorId === 'number' && typeof p.usbProductId === 'number')
+            : [];
+
+        const combined = [...saved, ...PREFERRED_SCALE_IDS];
+        const seen = new Set();
+        return combined.filter((p) => {
+            const key = `${p.usbVendorId}:${p.usbProductId}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    } catch {
+        return [...PREFERRED_SCALE_IDS];
+    }
+}
+
 function formatNumber(value, decimals = 2) {
     const n = Number(value);
     if (Number.isNaN(n)) return '';
@@ -419,7 +445,8 @@ exportCsvBtn.addEventListener('click', () => {
 function isPreferredScalePort(port) {
     if (!port || typeof port.getInfo !== 'function') return false;
     const info = port.getInfo() || {};
-    return PREFERRED_SCALE_IDS.some(({ usbVendorId, usbProductId }) => {
+    const preferredIds = getPreferredScaleIds();
+    return preferredIds.some(({ usbVendorId, usbProductId }) => {
         const vendorMatches = typeof usbVendorId === 'number' ? info.usbVendorId === usbVendorId : true;
         const productMatches = typeof usbProductId === 'number' ? info.usbProductId === usbProductId : true;
         return vendorMatches && productMatches;
@@ -525,7 +552,26 @@ async function connectPreferredScale({ auto = false } = {}) {
 }
 
 connectScaleBtn.addEventListener('click', () => {
-    connectPreferredScale({ auto: false });
+    (async () => {
+        try {
+            if ('serial' in navigator) {
+                const ports = await navigator.serial.getPorts();
+                if (!ports || !ports.length) {
+                    const currentPage = (location.pathname.split('/').pop()) || 'index.html';
+                    const url = new URL('ports.html', window.location.href);
+                    url.searchParams.set('return', currentPage);
+                    const w = window.open(url.toString(), 'ports', 'width=900,height=700');
+                    if (!w) {
+                        window.location.href = url.toString();
+                    }
+                    showStatusMessage('Open Ports window to grant serial access, then come back and click Connect again.', true);
+                    return;
+                }
+            }
+        } catch {
+        }
+        connectPreferredScale({ auto: false });
+    })();
 });
 
 disconnectScaleBtn.addEventListener('click', () => {
@@ -547,7 +593,7 @@ async function readFromScale() {
             }
 
             lineBuffer += value;
-            const lines = lineBuffer.split('\n');
+            const lines = lineBuffer.split(/\r\n|\n|\r/);
             lineBuffer = lines.pop() || '';
 
             for (const line of lines) {
@@ -575,21 +621,28 @@ function parseScaleData(data) {
     scaleRawData.textContent = data;
 
     const parts = data.split(',');
-    if (parts.length >= 2) {
-        const weight = parseFloat(parts[1]);
 
-        if (!isNaN(weight)) {
-            currentWeight = weight;
-            currentWeightDisplay.textContent = formatNumber(weight, 2);
-            setLockedWeight(currentWeight, 'auto');
+    let weight = NaN;
+    if (parts.length >= 2) {
+        weight = parseFloat(parts[1]);
+        if (Number.isNaN(weight) && parts.length >= 3) {
+            weight = parseFloat(parts[2]);
         }
     } else {
-        const weight = parseFloat(data);
-        if (!isNaN(weight)) {
-            currentWeight = weight;
-            currentWeightDisplay.textContent = formatNumber(weight, 2);
-            setLockedWeight(currentWeight, 'auto');
+        weight = parseFloat(data);
+    }
+
+    if (Number.isNaN(weight)) {
+        const match = String(data).match(/-?\d+(?:\.\d+)?/);
+        if (match) {
+            weight = parseFloat(match[0]);
         }
+    }
+
+    if (!Number.isNaN(weight)) {
+        currentWeight = weight;
+        currentWeightDisplay.textContent = formatNumber(weight, 2);
+        setLockedWeight(currentWeight, 'auto');
     }
 }
 
