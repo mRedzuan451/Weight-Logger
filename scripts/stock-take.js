@@ -263,6 +263,11 @@ function applyStockTakeUpdates() {
   } catch (err) {
     console.error('Error applying stock take updates:', err);
     alert('Failed to apply stock take updates. See console for details.');
+  } finally {
+    try {
+      qrInput?.focus();
+    } catch {
+    }
   }
 }
 
