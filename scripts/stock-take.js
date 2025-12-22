@@ -42,6 +42,7 @@ let scalePort = null;
 let scaleReader = null;
 let keepReadingScale = false;
 let currentWeight = 0;
+let scaleConnectInProgress = false;
 const STOCK_TAKE_TOLERANCE_GRAMS = 5; // allowable +/- 5g difference
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
@@ -69,6 +70,29 @@ let stockItems = [];
 let stockTakeSort = { key: 'labelId', direction: 'asc' };
 let stockTakeHeaderCells = [];
 const stockTakeSortKeys = ['labelId', 'itemName', 'expectedQty', 'expectedWeight', 'actualQty', 'actualWeight', 'diff'];
+
+let qrScanBuffer = '';
+let qrScanBufferTimer = null;
+
+function ensureQrInputInteractive() {
+  if (!qrInput) return;
+  qrInput.disabled = false;
+  qrInput.readOnly = false;
+}
+
+function refocusQrInputSoon() {
+  try {
+    ensureQrInputInteractive();
+  } catch {
+  }
+  setTimeout(() => {
+    try {
+      ensureQrInputInteractive();
+      qrInput?.focus();
+    } catch {
+    }
+  }, 0);
+}
 
 function formatNumber(value, decimals = 2) {
   const n = Number(value);
@@ -146,6 +170,7 @@ function saveStockTakeHistoryArray(records) {
 }
 
 function applyStockTakeUpdates() {
+  let didApply = false;
   try {
     if (!stockItems.length) {
       alert('No in-stock items to update.');
@@ -258,6 +283,7 @@ function applyStockTakeUpdates() {
     localStorage.removeItem(STOCK_TAKE_STATE_KEY);
 
     showStatus('Stock take updates applied. List reloaded with new weights.', false);
+    didApply = true;
     resetInfo();
     loadInStockItems();
   } catch (err) {
@@ -265,8 +291,17 @@ function applyStockTakeUpdates() {
     alert('Failed to apply stock take updates. See console for details.');
   } finally {
     try {
-      qrInput?.focus();
+      refocusQrInputSoon();
     } catch {
+    }
+
+    if (didApply) {
+      setTimeout(() => {
+        try {
+          window.location.reload();
+        } catch {
+        }
+      }, 250);
     }
   }
 }
@@ -600,6 +635,7 @@ async function disconnectScale({ quiet = true } = {}) {
   keepReadingScale = false;
   if (scaleReader) {
     try { await scaleReader.cancel(); } catch {}
+    try { scaleReader.releaseLock(); } catch {}
   }
   if (scalePort) {
     try { await scalePort.close(); } catch {}
@@ -610,21 +646,47 @@ async function disconnectScale({ quiet = true } = {}) {
   scaleStatus.className = 'text-lg font-bold text-red-600';
   connectScaleBtn.style.display = 'block';
   disconnectScaleBtn.style.display = 'none';
+  ensureQrInputInteractive();
   if (!quiet) showStatus('Scale disconnected.', false);
 }
 
 async function beginScaleSession(port) {
   if (!port) throw new Error('No serial port provided.');
-  await disconnectScale({ quiet: true });
-  await port.open(SCALE_SERIAL_OPTIONS);
-  scalePort = port;
-  scaleStatus.textContent = 'Connected';
-  scaleStatus.className = 'text-lg font-bold text-green-600';
-  connectScaleBtn.style.display = 'none';
-  disconnectScaleBtn.style.display = 'block';
-  keepReadingScale = true;
-  qrInput.focus();
-  readFromScale();
+  if (scaleConnectInProgress) return;
+  scaleConnectInProgress = true;
+  try {
+    await disconnectScale({ quiet: true });
+
+    // If the user pulled the cable / device glitched, make sure we don't re-open an already-open port.
+    if (port.readable) {
+      try { await port.close(); } catch {}
+    }
+
+    try {
+      await port.open(SCALE_SERIAL_OPTIONS);
+      scalePort = port;
+      scaleStatus.textContent = 'Connected';
+      scaleStatus.className = 'text-lg font-bold text-green-600';
+      connectScaleBtn.style.display = 'none';
+      disconnectScaleBtn.style.display = 'block';
+      keepReadingScale = true;
+      refocusQrInputSoon();
+      readFromScale(port);
+    } catch (err) {
+      try {
+        if (port?.readable) {
+          try { await port.close(); } catch {}
+        }
+      } catch {
+      }
+      await disconnectScale({ quiet: true });
+      scaleStatus.textContent = 'Connection Failed';
+      scaleStatus.className = 'text-lg font-bold text-red-600';
+      throw err;
+    }
+  } finally {
+    scaleConnectInProgress = false;
+  }
 }
 
 async function connectPreferredScale() {
@@ -633,6 +695,11 @@ async function connectPreferredScale() {
     return;
   }
   try {
+    if (scalePort?.readable && !scaleConnectInProgress) {
+      showStatus('Scale already connected.', false);
+      refocusQrInputSoon();
+      return;
+    }
     const grantedPorts = await navigator.serial.getPorts();
     let port = grantedPorts.find(isPreferredScalePort);
     if (!port) {
@@ -651,18 +718,23 @@ async function connectPreferredScale() {
       console.error('Error during scale connection:', err);
       showStatus('Failed to connect to scale.', true);
     }
+    refocusQrInputSoon();
   }
 }
 
-async function readFromScale() {
+async function readFromScale(port = scalePort) {
+  const activePort = port;
+  if (!activePort?.readable) return;
+
   const textDecoder = new TextDecoderStream();
-  const readableStreamClosed = scalePort.readable.pipeTo(textDecoder.writable);
-  scaleReader = textDecoder.readable.getReader();
+  const readableStreamClosed = activePort.readable.pipeTo(textDecoder.writable);
+  const reader = textDecoder.readable.getReader();
+  scaleReader = reader;
 
   let lineBuffer = '';
-  while (scalePort.readable && keepReadingScale) {
+  while (activePort.readable && keepReadingScale && scalePort === activePort) {
     try {
-      const { value, done } = await scaleReader.read();
+      const { value, done } = await reader.read();
       if (done) break;
       lineBuffer += value;
       const lines = lineBuffer.split(/\r\n|\n|\r/);
@@ -676,9 +748,7 @@ async function readFromScale() {
     }
   }
 
-  if (scaleReader) {
-    try { scaleReader.releaseLock(); } catch {}
-  }
+  try { reader.releaseLock(); } catch {}
   try { await readableStreamClosed.catch(() => {}); } catch {}
 }
 
@@ -876,7 +946,44 @@ function handleScan(raw) {
   updateDiff();
 }
 
-qrInput.addEventListener('click', (e) => { e.target.value = ''; });
+qrInput.addEventListener('click', (e) => {
+  e.target.value = '';
+  qrScanBuffer = '';
+  if (qrScanBufferTimer) {
+    clearTimeout(qrScanBufferTimer);
+    qrScanBufferTimer = null;
+  }
+});
+qrInput.addEventListener('keydown', (e) => {
+  if (qrScanBufferTimer) {
+    clearTimeout(qrScanBufferTimer);
+    qrScanBufferTimer = null;
+  }
+  qrScanBufferTimer = setTimeout(() => {
+    qrScanBuffer = '';
+    qrScanBufferTimer = null;
+  }, 500);
+
+  if (e.key === 'Enter' || e.key === 'Tab') {
+    const value = qrScanBuffer || e.target.value;
+    qrScanBuffer = '';
+    e.target.value = '';
+    e.preventDefault();
+    handleScan(value);
+    return;
+  }
+
+  if (e.key === 'Backspace') {
+    qrScanBuffer = qrScanBuffer.slice(0, -1);
+    return;
+  }
+  if (e.key === 'Shift' || e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
+    return;
+  }
+  if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+    qrScanBuffer += e.key;
+  }
+});
 qrInput.addEventListener('change', (e) => {
   const value = e.target.value;
   e.target.value = '';
