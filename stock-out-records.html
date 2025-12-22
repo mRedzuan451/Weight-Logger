@@ -12,7 +12,7 @@
 </head>
 <body class="min-h-screen font-sans bg-gray-100 p-6">
     <div class="w-full max-w-5xl mx-auto mt-10">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+        <div class="sticky top-0 z-20 bg-gray-100 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
             <h1 class="text-3xl font-bold text-gray-800">Stock Out Records</h1>
             <div class="flex flex-wrap gap-2 justify-center md:justify-end">
                 <button id="export-csv-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Export CSV</button>
@@ -25,7 +25,7 @@
             <div class="overflow-x-auto">
                 <div class="max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50 sticky top-0 z-10">
+                        <thead class="bg-gray-50 sticky top-14 z-10">
                             <tr>
                                 <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
                                 <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
