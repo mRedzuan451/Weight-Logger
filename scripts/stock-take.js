@@ -294,15 +294,6 @@ function applyStockTakeUpdates() {
       refocusQrInputSoon();
     } catch {
     }
-
-    if (didApply) {
-      setTimeout(() => {
-        try {
-          window.location.reload();
-        } catch {
-        }
-      }, 250);
-    }
   }
 }
 
