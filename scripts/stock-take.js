@@ -65,6 +65,9 @@ const tableBody = document.getElementById('stocktake-table-body');
 const exportBtn = document.getElementById('stocktake-export-btn');
 const applyBtn = document.getElementById('stocktake-apply-btn');
 const printBtn = document.getElementById('stocktake-print-btn');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmModalOkBtn = document.getElementById('confirm-modal-ok');
+const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel');
 
 let stockItems = [];
 let stockTakeSort = { key: 'labelId', direction: 'asc' };
@@ -87,6 +90,11 @@ function refocusQrInputSoon() {
   }
   setTimeout(() => {
     try {
+      // Explicitly bring the window and QR input back into focus.
+      try {
+        window.focus();
+      } catch {
+      }
       ensureQrInputInteractive();
       qrInput?.focus();
     } catch {
@@ -170,10 +178,10 @@ function saveStockTakeHistoryArray(records) {
 }
 
 function applyStockTakeUpdates() {
-  let didApply = false;
   try {
     if (!stockItems.length) {
-      alert('No in-stock items to update.');
+      showStatus('No in-stock items to update.', true);
+      refocusQrInputSoon();
       return;
     }
 
@@ -186,13 +194,39 @@ function applyStockTakeUpdates() {
     }
 
     if (!updatedLabels.size) {
-      alert('No items have an actual weight recorded to update.');
+      showStatus('No items have an actual weight recorded to update.', true);
+      refocusQrInputSoon();
       return;
     }
 
-    if (!confirm('Apply the actual weights to the latest stock-in records and reset stock-take status?')) {
-      return;
+    // Show custom modal instead of native confirm
+    if (confirmModal) {
+      confirmModal.classList.remove('hidden');
+      // Focus the OK button so user can just hit Enter
+      confirmModalOkBtn?.focus();
     }
+  } catch (err) {
+    console.error('Error preparing stock take updates:', err);
+    showStatus('Error preparing updates. See console.', true);
+  }
+}
+
+function executeStockTakeUpdates() {
+  let didApply = false;
+  try {
+    // Hide modal first
+    if (confirmModal) {
+      confirmModal.classList.add('hidden');
+    }
+
+    // Re-validate just in case
+    const updatedLabels = new Map();
+    for (const item of stockItems) {
+      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
+        updatedLabels.set(item.labelId, item.actualWeight);
+      }
+    }
+    if (!updatedLabels.size) return;
 
     const currentUser = getCurrentUser();
 
@@ -288,19 +322,31 @@ function applyStockTakeUpdates() {
     loadInStockItems();
   } catch (err) {
     console.error('Error applying stock take updates:', err);
-    alert('Failed to apply stock take updates. See console for details.');
+    showStatus('Failed to apply stock take updates. See console.', true);
   } finally {
     try {
+      ensureQrInputInteractive();
       refocusQrInputSoon();
     } catch {
     }
   }
 }
 
+confirmModalOkBtn?.addEventListener('click', () => {
+  executeStockTakeUpdates();
+});
+
+confirmModalCancelBtn?.addEventListener('click', () => {
+  if (confirmModal) {
+    confirmModal.classList.add('hidden');
+  }
+  refocusQrInputSoon();
+});
+
 function exportStockTakeCsv() {
   try {
     if (!stockItems.length) {
-      alert('No in-stock items to export.');
+      showStatus('No in-stock items to export.', true);
       return;
     }
 
@@ -354,7 +400,7 @@ function exportStockTakeCsv() {
     URL.revokeObjectURL(url);
   } catch (err) {
     console.error('Error exporting stock take CSV:', err);
-    alert('Failed to export CSV. See console for details.');
+    showStatus('Failed to export CSV. See console.', true);
   }
 }
 
@@ -944,6 +990,15 @@ qrInput.addEventListener('click', (e) => {
     clearTimeout(qrScanBufferTimer);
     qrScanBufferTimer = null;
   }
+  try {
+    ensureQrInputInteractive();
+    try {
+      window.focus();
+    } catch {
+    }
+    qrInput?.focus();
+  } catch {
+  }
 });
 qrInput.addEventListener('keydown', (e) => {
   if (qrScanBufferTimer) {
@@ -1017,6 +1072,7 @@ window.addEventListener('DOMContentLoaded', () => {
   logoutBtn?.addEventListener('click', handleLogout);
   resetInfo();
   loadInStockItems();
+  ensureQrInputInteractive();
   qrInput.focus();
 
   if (tableBody) {
@@ -1051,7 +1107,7 @@ function escapeCsv(value) {
 function printStockTakeReport() {
   try {
     if (!stockItems.length) {
-      alert('No in-stock items to print.');
+      showStatus('No in-stock items to print.', true);
       return;
     }
 
