@@ -49,6 +49,7 @@ const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
 let stockTakeDiffLimitGrams = null;
 let lastDiffLimitPromptKey = '';
+let diffLimitPromptArmed = false;
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
@@ -904,6 +905,9 @@ function resetInfo() {
 }
 
 function updateDiff() {
+  const shouldPromptForDiffLimit = diffLimitPromptArmed;
+  diffLimitPromptArmed = false;
+
   const expectedText = infoExpected.textContent || '';
   const match = expectedText.match(/([-0-9.]+)/);
   if (!match) {
@@ -917,7 +921,7 @@ function updateDiff() {
   }
   const diff = currentWeight - expected;
 
-  if (typeof stockTakeDiffLimitGrams === 'number' && Math.abs(diff) > stockTakeDiffLimitGrams) {
+  if (shouldPromptForDiffLimit && typeof stockTakeDiffLimitGrams === 'number' && Math.abs(diff) > stockTakeDiffLimitGrams) {
     const labelId = (infoLabelId.textContent || '').trim();
     const key = `${labelId}|${formatNumber(currentWeight, 2)}|${formatNumber(diff, 2)}|${formatNumber(stockTakeDiffLimitGrams, 2)}`;
     if (key !== lastDiffLimitPromptKey) {
@@ -1046,7 +1050,7 @@ function handleScan(raw) {
   const trimmed = (raw || '').trim();
   if (!trimmed) return;
 
-  resetInfo();
+  diffLimitPromptArmed = true;
 
   let labelId = trimmed;
   if (trimmed.startsWith('{')) {
