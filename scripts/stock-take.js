@@ -1270,6 +1270,10 @@ function printStockTakeReport() {
       const totalDiffQty = g.actualQty - g.expectedQty;
       const totalDiffWeight = g.actualWeight - g.expectedWeight;
 
+      const remarkText = (typeof stockTakeDiffLimitGrams === 'number' && Math.abs(totalDiffWeight) > stockTakeDiffLimitGrams)
+        ? 'Need review'
+        : '';
+
       const expectedQtyText = Number.isFinite(g.expectedQty) ? formatNumber(g.expectedQty, 0) : '';
       const actualQtyText = Number.isFinite(g.actualQty) ? formatNumber(g.actualQty, 0) : '';
       const diffQtyText = Number.isFinite(totalDiffQty) ? formatNumber(totalDiffQty, 0) : '';
@@ -1290,6 +1294,7 @@ function printStockTakeReport() {
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffWeightText}</td>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
           <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
+          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${remarkText}</td>
         </tr>
       `;
     }).join('');
@@ -1329,9 +1334,20 @@ function printStockTakeReport() {
           .subhead { font-size: 10pt; color: #4b5563; margin-bottom: 12px; }
           table { width: 100%; border-collapse: collapse; }
           th { background: #f3f4f6; font-size: 10pt; text-align: left; padding: 4px 8px; border: 1px solid #e5e7eb; }
+          .print-controls { position: sticky; top: 0; z-index: 50; background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 10px 0; margin-bottom: 12px; }
+          .print-controls-inner { display: flex; justify-content: flex-end; gap: 8px; }
+          .btn { font: inherit; font-size: 10pt; padding: 8px 12px; border-radius: 8px; cursor: pointer; border: 1px solid #d1d5db; background: #ffffff; }
+          .btn-primary { background: #2563eb; border-color: #2563eb; color: #ffffff; }
+          @media print { .print-controls { display: none; } }
         </style>
       </head>
       <body>
+        <div class="print-controls">
+          <div class="print-controls-inner">
+            <button class="btn" onclick="window.close()">Close</button>
+            <button class="btn btn-primary" onclick="window.print()">Print</button>
+          </div>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
           <div>
             <h1>Stock Record</h1>
@@ -1353,6 +1369,7 @@ function printStockTakeReport() {
               <th style="text-align:right;">Diff Weight</th>
               <th>Final Judgement</th>
               <th>Comment</th>
+              <th>Remark</th>
             </tr>
           </thead>
           <tbody>
@@ -1362,35 +1379,18 @@ function printStockTakeReport() {
       </body>
       </html>
     `;
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!doc) {
-      alert('Failed to access print frame.');
-      document.body.removeChild(iframe);
+    const preview = window.open('', '_blank');
+    if (!preview) {
+      alert('Unable to open print preview window. Please allow popups.');
       return;
     }
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } finally {
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 500);
-      }
-    };
+    preview.document.open();
+    preview.document.write(html);
+    preview.document.close();
+    try {
+      preview.focus();
+    } catch {
+    }
   } catch (err) {
     console.error('Error generating stock take print report:', err);
     alert('Failed to generate print report. See console for details.');
