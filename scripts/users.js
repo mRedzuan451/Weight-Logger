@@ -1,6 +1,7 @@
 'use strict';
 
 const USER_ACCOUNTS_KEY = 'user_accounts';
+const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
 const USERS_BACKUP_KEYS = [
   'weight_records',
@@ -264,6 +265,30 @@ function handleResetPassword(username) {
   updateStorageUsageDisplay();
 }
 
+function loadGlobalStockTakeTolerance() {
+  try {
+    const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
+    if (raw === null || raw === '') return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveGlobalStockTakeTolerance(value) {
+  try {
+    if (value === null) {
+      localStorage.removeItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
+      return true;
+    }
+    localStorage.setItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY, String(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function handleToggleActive(username) {
   const users = loadUsers();
   const user = users.find(u => u && u.username === username);
@@ -288,6 +313,24 @@ window.addEventListener('DOMContentLoaded', () => {
     redirectToLogin();
     return;
   }
+
+  const globalToleranceEl = document.getElementById('global-stocktake-tolerance');
+  const globalToleranceSaveBtn = document.getElementById('global-stocktake-tolerance-save');
+  const savedTolerance = loadGlobalStockTakeTolerance();
+  if (globalToleranceEl && 'value' in globalToleranceEl) {
+    globalToleranceEl.value = savedTolerance === null ? '' : String(savedTolerance);
+  }
+  globalToleranceSaveBtn?.addEventListener('click', () => {
+    const raw = (globalToleranceEl && 'value' in globalToleranceEl) ? String(globalToleranceEl.value).trim() : '';
+    const parsed = raw === '' ? null : Number(raw);
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+      showStatus('Allowable tolerance must be a number greater than or equal to 0.', true);
+      return;
+    }
+    const ok = saveGlobalStockTakeTolerance(parsed === null ? null : parsed);
+    showStatus(ok ? 'Stock take tolerance saved.' : 'Failed to save stock take tolerance.', !ok);
+    updateStorageUsageDisplay();
+  });
 
   renderUsers();
   updateStorageUsageDisplay();

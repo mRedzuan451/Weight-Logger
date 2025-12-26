@@ -43,7 +43,9 @@ let scaleReader = null;
 let keepReadingScale = false;
 let currentWeight = 0;
 let scaleConnectInProgress = false;
-const STOCK_TAKE_TOLERANCE_GRAMS = 5; // allowable +/- 5g difference
+const DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS = 5;
+let stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
+const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
@@ -117,6 +119,22 @@ function getCurrentUser() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function refreshStockTakeTolerance() {
+  try {
+    const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
+    if (raw === null || raw === '') {
+      stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
+      return;
+    }
+    const parsed = Number(raw);
+    stockTakeToleranceGrams = (Number.isFinite(parsed) && parsed >= 0)
+      ? parsed
+      : DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
+  } catch {
+    stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
   }
 }
 
@@ -837,8 +855,8 @@ function updateDiff() {
     return;
   }
   const diff = currentWeight - expected;
-  const withinTolerance = Math.abs(diff) <= STOCK_TAKE_TOLERANCE_GRAMS;
-  infoDiff.textContent = `${formatNumber(diff, 2)} g${withinTolerance ? ' (within 5g)' : ''}`;
+  const withinTolerance = Math.abs(diff) <= stockTakeToleranceGrams;
+  infoDiff.textContent = `${formatNumber(diff, 2)} g${withinTolerance ? ` (within ${formatNumber(stockTakeToleranceGrams, 2)}g)` : ''}`;
   // Use text color to indicate out-of-tolerance differences
   infoDiff.className = 'font-mono float-right ' + (withinTolerance ? 'text-green-700' : 'text-red-700');
 
@@ -856,7 +874,9 @@ function updateStockTakeRow(expected, diff, withinTolerance) {
   const expectedWeight = expected;
 
   const actualWeight = currentWeight;
-  const stockTakeStatus = withinTolerance ? 'Done (within 5g)' : 'Done (out of tolerance)';
+  const stockTakeStatus = withinTolerance
+    ? `Done (within ${formatNumber(stockTakeToleranceGrams, 2)}g)`
+    : 'Done (out of tolerance)';
 
   const unitMatch = (infoExpected.textContent || '').match(/[a-zA-Z]+$/);
   const unit = unitMatch ? unitMatch[0] : 'g';
@@ -1069,6 +1089,7 @@ printBtn?.addEventListener('click', printStockTakeReport);
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
+  refreshStockTakeTolerance();
   logoutBtn?.addEventListener('click', handleLogout);
   resetInfo();
   loadInStockItems();
