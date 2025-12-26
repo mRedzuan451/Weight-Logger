@@ -240,7 +240,8 @@ function applyStockTakeUpdates() {
       if (overLimit) {
         const currentUser = getCurrentUser();
         if (!isAdmin(currentUser)) {
-          showStatus('Update requires authorized user: some items exceed allowable difference limit.', true);
+          alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
+          showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
           refocusQrInputSoon();
           return;
         }
@@ -292,7 +293,8 @@ function executeStockTakeUpdates() {
       if (overLimit) {
         const currentUser = getCurrentUser();
         if (!isAdmin(currentUser)) {
-          showStatus('Update requires authorized user: some items exceed allowable difference limit.', true);
+          alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
+          showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
           refocusQrInputSoon();
           return;
         }
