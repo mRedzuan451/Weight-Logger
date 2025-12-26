@@ -1,6 +1,6 @@
 {
   "name": "weight-logger",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Weight Logger desktop app (Electron wrapper around existing web app)",
   "main": "main.js",
   "author": "",
