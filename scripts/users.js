@@ -2,6 +2,7 @@
 
 const USER_ACCOUNTS_KEY = 'user_accounts';
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
+const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
 const USERS_BACKUP_KEYS = [
   'weight_records',
@@ -18,6 +19,30 @@ function getCurrentUser() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function loadGlobalStockTakeDiffLimit() {
+  try {
+    const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY);
+    if (raw === null || raw === '') return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveGlobalStockTakeDiffLimit(value) {
+  try {
+    if (value === null) {
+      localStorage.removeItem(GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY);
+      return true;
+    }
+    localStorage.setItem(GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY, String(value));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -315,20 +340,33 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const globalToleranceEl = document.getElementById('global-stocktake-tolerance');
+  const globalDiffLimitEl = document.getElementById('global-stocktake-diff-limit');
   const globalToleranceSaveBtn = document.getElementById('global-stocktake-tolerance-save');
   const savedTolerance = loadGlobalStockTakeTolerance();
+  const savedDiffLimit = loadGlobalStockTakeDiffLimit();
   if (globalToleranceEl && 'value' in globalToleranceEl) {
     globalToleranceEl.value = savedTolerance === null ? '' : String(savedTolerance);
+  }
+  if (globalDiffLimitEl && 'value' in globalDiffLimitEl) {
+    globalDiffLimitEl.value = savedDiffLimit === null ? '' : String(savedDiffLimit);
   }
   globalToleranceSaveBtn?.addEventListener('click', () => {
     const raw = (globalToleranceEl && 'value' in globalToleranceEl) ? String(globalToleranceEl.value).trim() : '';
     const parsed = raw === '' ? null : Number(raw);
+    const diffRaw = (globalDiffLimitEl && 'value' in globalDiffLimitEl) ? String(globalDiffLimitEl.value).trim() : '';
+    const diffParsed = diffRaw === '' ? null : Number(diffRaw);
     if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
       showStatus('Allowable tolerance must be a number greater than or equal to 0.', true);
       return;
     }
-    const ok = saveGlobalStockTakeTolerance(parsed === null ? null : parsed);
-    showStatus(ok ? 'Stock take tolerance saved.' : 'Failed to save stock take tolerance.', !ok);
+    if (diffParsed !== null && (!Number.isFinite(diffParsed) || diffParsed < 0)) {
+      showStatus('Allowable difference limit must be a number greater than or equal to 0.', true);
+      return;
+    }
+    const okTolerance = saveGlobalStockTakeTolerance(parsed === null ? null : parsed);
+    const okDiffLimit = saveGlobalStockTakeDiffLimit(diffParsed === null ? null : diffParsed);
+    const ok = okTolerance && okDiffLimit;
+    showStatus(ok ? 'Stock take settings saved.' : 'Failed to save stock take settings.', !ok);
     updateStorageUsageDisplay();
   });
 

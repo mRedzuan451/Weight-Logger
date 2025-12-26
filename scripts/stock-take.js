@@ -46,6 +46,9 @@ let scaleConnectInProgress = false;
 const DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS = 5;
 let stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
+const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
+let stockTakeDiffLimitGrams = null;
+let lastDiffLimitPromptKey = '';
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 
@@ -122,6 +125,14 @@ function getCurrentUser() {
   }
 }
 
+function isAdmin(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const name = (user.name || '').trim().toLowerCase();
+  const id = (user.employeeId || user.username || '').trim();
+  return name === 'admin' && id === '1234';
+}
+
 function refreshStockTakeTolerance() {
   try {
     const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
@@ -135,6 +146,20 @@ function refreshStockTakeTolerance() {
       : DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
   } catch {
     stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
+  }
+}
+
+function refreshStockTakeDiffLimit() {
+  try {
+    const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY);
+    if (raw === null || raw === '') {
+      stockTakeDiffLimitGrams = null;
+      return;
+    }
+    const parsed = Number(raw);
+    stockTakeDiffLimitGrams = (Number.isFinite(parsed) && parsed >= 0) ? parsed : null;
+  } catch {
+    stockTakeDiffLimitGrams = null;
   }
 }
 
@@ -203,6 +228,24 @@ function applyStockTakeUpdates() {
       return;
     }
 
+    if (typeof stockTakeDiffLimitGrams === 'number') {
+      const overLimit = stockItems.some(item => (
+        typeof item?.actualWeight === 'number'
+        && !Number.isNaN(item.actualWeight)
+        && typeof item?.diff === 'number'
+        && !Number.isNaN(item.diff)
+        && Math.abs(item.diff) > stockTakeDiffLimitGrams
+      ));
+      if (overLimit) {
+        const currentUser = getCurrentUser();
+        if (!isAdmin(currentUser)) {
+          showStatus('Update requires authorized user: some items exceed allowable difference limit.', true);
+          refocusQrInputSoon();
+          return;
+        }
+      }
+    }
+
     // Only consider labels where we have an actual measured weight
     const updatedLabels = new Map();
     for (const item of stockItems) {
@@ -235,6 +278,24 @@ function executeStockTakeUpdates() {
     // Hide modal first
     if (confirmModal) {
       confirmModal.classList.add('hidden');
+    }
+
+    if (typeof stockTakeDiffLimitGrams === 'number') {
+      const overLimit = stockItems.some(item => (
+        typeof item?.actualWeight === 'number'
+        && !Number.isNaN(item.actualWeight)
+        && typeof item?.diff === 'number'
+        && !Number.isNaN(item.diff)
+        && Math.abs(item.diff) > stockTakeDiffLimitGrams
+      ));
+      if (overLimit) {
+        const currentUser = getCurrentUser();
+        if (!isAdmin(currentUser)) {
+          showStatus('Update requires authorized user: some items exceed allowable difference limit.', true);
+          refocusQrInputSoon();
+          return;
+        }
+      }
     }
 
     // Re-validate just in case
@@ -855,6 +916,22 @@ function updateDiff() {
     return;
   }
   const diff = currentWeight - expected;
+
+  if (typeof stockTakeDiffLimitGrams === 'number' && Math.abs(diff) > stockTakeDiffLimitGrams) {
+    const labelId = (infoLabelId.textContent || '').trim();
+    const key = `${labelId}|${formatNumber(currentWeight, 2)}|${formatNumber(diff, 2)}|${formatNumber(stockTakeDiffLimitGrams, 2)}`;
+    if (key !== lastDiffLimitPromptKey) {
+      lastDiffLimitPromptKey = key;
+      const ok = window.confirm(`Difference exceeds allowable limit (${formatNumber(stockTakeDiffLimitGrams, 2)}g). Continue?`);
+      if (!ok) {
+        currentWeight = Number.NaN;
+        infoActual.textContent = '--';
+        infoDiff.textContent = '--';
+        return;
+      }
+    }
+  }
+
   const withinTolerance = Math.abs(diff) <= stockTakeToleranceGrams;
   infoDiff.textContent = `${formatNumber(diff, 2)} g${withinTolerance ? ` (within ${formatNumber(stockTakeToleranceGrams, 2)}g)` : ''}`;
   // Use text color to indicate out-of-tolerance differences
@@ -1090,6 +1167,7 @@ printBtn?.addEventListener('click', printStockTakeReport);
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
   refreshStockTakeTolerance();
+  refreshStockTakeDiffLimit();
   logoutBtn?.addEventListener('click', handleLogout);
   resetInfo();
   loadInStockItems();
