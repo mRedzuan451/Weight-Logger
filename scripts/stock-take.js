@@ -82,11 +82,18 @@ const stockTakeSortKeys = ['labelId', 'itemName', 'expectedQty', 'expectedWeight
 
 let qrScanBuffer = '';
 let qrScanBufferTimer = null;
+const DEBUG_QR_FOCUS = false;
 
 function ensureQrInputInteractive() {
   if (!qrInput) return;
   qrInput.disabled = false;
   qrInput.readOnly = false;
+  try {
+    qrInput.removeAttribute('disabled');
+    qrInput.removeAttribute('readonly');
+    qrInput.style.pointerEvents = 'auto';
+  } catch {
+  }
 }
 
 function refocusQrInputSoon() {
@@ -102,7 +109,29 @@ function refocusQrInputSoon() {
       } catch {
       }
       ensureQrInputInteractive();
+      try {
+        if (DEBUG_QR_FOCUS) {
+          console.log('[stock-take] refocusQrInputSoon: before focus', {
+            disabled: qrInput?.disabled,
+            readOnly: qrInput?.readOnly,
+            activeElementId: document?.activeElement?.id,
+            activeElementTag: document?.activeElement?.tagName,
+          });
+        }
+      } catch {
+      }
       qrInput?.focus();
+      try {
+        if (DEBUG_QR_FOCUS) {
+          console.log('[stock-take] refocusQrInputSoon: after focus', {
+            disabled: qrInput?.disabled,
+            readOnly: qrInput?.readOnly,
+            activeElementId: document?.activeElement?.id,
+            activeElementTag: document?.activeElement?.tagName,
+          });
+        }
+      } catch {
+      }
     } catch {
     }
   }, 0);
@@ -240,8 +269,39 @@ function applyStockTakeUpdates() {
       if (overLimit) {
         const currentUser = getCurrentUser();
         if (!isAdmin(currentUser)) {
+          try {
+            if (DEBUG_QR_FOCUS) {
+              console.log('[stock-take] applyStockTakeUpdates blocked (non-admin, over diff limit): before alert', {
+                disabled: qrInput?.disabled,
+                readOnly: qrInput?.readOnly,
+                activeElementId: document?.activeElement?.id,
+                activeElementTag: document?.activeElement?.tagName,
+              });
+            }
+          } catch {
+          }
           alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
           showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
+          try {
+            ensureQrInputInteractive();
+            try {
+              window.focus();
+            } catch {
+            }
+            qrInput?.focus();
+          } catch {
+          }
+          try {
+            if (DEBUG_QR_FOCUS) {
+              console.log('[stock-take] applyStockTakeUpdates blocked (non-admin, over diff limit): after focus attempt', {
+                disabled: qrInput?.disabled,
+                readOnly: qrInput?.readOnly,
+                activeElementId: document?.activeElement?.id,
+                activeElementTag: document?.activeElement?.tagName,
+              });
+            }
+          } catch {
+          }
           refocusQrInputSoon();
           return;
         }
@@ -262,11 +322,69 @@ function applyStockTakeUpdates() {
       return;
     }
 
-    // Show custom modal instead of native confirm
-    if (confirmModal) {
-      confirmModal.classList.remove('hidden');
-      // Focus the OK button so user can just hit Enter
-      confirmModalOkBtn?.focus();
+    const overLimit = (typeof stockTakeDiffLimitGrams === 'number')
+      ? stockItems.some(item => (
+        typeof item?.actualWeight === 'number'
+        && !Number.isNaN(item.actualWeight)
+        && typeof item?.diff === 'number'
+        && !Number.isNaN(item.diff)
+        && Math.abs(item.diff) > stockTakeDiffLimitGrams
+      ))
+      : false;
+
+    const popup = window.open('', 'stockTakeUpdateConfirm', 'width=520,height=360,resizable=yes,scrollbars=yes');
+    if (!popup) {
+      alert('Unable to open confirmation window. Please allow popups for this app.');
+      refocusQrInputSoon();
+      return;
+    }
+
+    const warning = overLimit && typeof stockTakeDiffLimitGrams === 'number'
+      ? `Some items exceed allowable difference limit (${formatNumber(stockTakeDiffLimitGrams, 2)}g).`
+      : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Confirm Update</title>
+        <style>
+          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 16px; color: #111827; }
+          h1 { font-size: 16pt; margin: 0 0 10px 0; }
+          .muted { color: #6b7280; font-size: 10pt; }
+          .box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #f9fafb; }
+          .warn { color: #991b1b; font-weight: 700; margin-top: 8px; }
+          .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+          button { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #ffffff; cursor: pointer; }
+          button.primary { background: #2563eb; border-color: #2563eb; color: #ffffff; }
+        </style>
+      </head>
+      <body>
+        <h1>Confirm Stock Take Update</h1>
+        <div class="box">
+          <div>Apply updates for <b>${updatedLabels.size}</b> label(s)?</div>
+          <div class="muted">This will overwrite the latest IN record weights and add a stock-take history entry.</div>
+          ${warning ? `<div class="warn">${warning}</div>` : ''}
+        </div>
+        <div class="actions">
+          <button type="button" onclick="window.close()">Cancel</button>
+          <button class="primary" type="button" onclick="try { window.opener && window.opener.executeStockTakeUpdates && window.opener.executeStockTakeUpdates(); } catch (e) {} window.close();">Confirm</button>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+      popup.focus();
+    } catch {
+      try { popup.close(); } catch {}
+      alert('Failed to open confirmation window.');
+      refocusQrInputSoon();
+      return;
     }
   } catch (err) {
     console.error('Error preparing stock take updates:', err);
@@ -295,6 +413,15 @@ function executeStockTakeUpdates() {
         if (!isAdmin(currentUser)) {
           alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
           showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
+          try {
+            ensureQrInputInteractive();
+            try {
+              window.focus();
+            } catch {
+            }
+            qrInput?.focus();
+          } catch {
+          }
           refocusQrInputSoon();
           return;
         }
@@ -415,7 +542,9 @@ function executeStockTakeUpdates() {
 }
 
 confirmModalOkBtn?.addEventListener('click', () => {
-  executeStockTakeUpdates();
+  if (confirmModal) {
+    confirmModal.classList.add('hidden');
+  }
 });
 
 confirmModalCancelBtn?.addEventListener('click', () => {
@@ -1103,7 +1232,45 @@ qrInput.addEventListener('click', (e) => {
   } catch {
   }
 });
+window.addEventListener('focus', () => {
+  try {
+    if (DEBUG_QR_FOCUS) console.log('[stock-take] window focus -> refocusQrInputSoon');
+  } catch {
+  }
+  refocusQrInputSoon();
+});
+document.addEventListener('keydown', (e) => {
+  try {
+    if (!qrInput) return;
+    const active = document?.activeElement;
+    if (active === qrInput) return;
+
+    // Don't steal focus from other editable fields.
+    const tag = active?.tagName ? String(active.tagName).toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable) return;
+
+    // If a scanner or user is typing but focus routing is broken (common after modal alert),
+    // force focus back to QR input so the existing qrInput keydown handler can capture the scan.
+    if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      ensureQrInputInteractive();
+      qrInput.focus();
+    }
+  } catch {
+  }
+}, true);
 qrInput.addEventListener('keydown', (e) => {
+  try {
+    if (DEBUG_QR_FOCUS) {
+      console.log('[stock-take] qrInput keydown', {
+        key: e.key,
+        code: e.code,
+        disabled: qrInput?.disabled,
+        readOnly: qrInput?.readOnly,
+        activeElementId: document?.activeElement?.id,
+      });
+    }
+  } catch {
+  }
   if (qrScanBufferTimer) {
     clearTimeout(qrScanBufferTimer);
     qrScanBufferTimer = null;
