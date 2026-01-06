@@ -84,6 +84,8 @@ let qrScanBuffer = '';
 let qrScanBufferTimer = null;
 const DEBUG_QR_FOCUS = false;
 
+let pendingScaleCompareForScan = false;
+
 function ensureQrInputInteractive() {
   if (!qrInput) return;
   qrInput.disabled = false;
@@ -1022,6 +1024,11 @@ function handleScaleLine(data) {
   if (!Number.isNaN(w)) {
     currentWeight = w;
     infoActual.textContent = `${formatNumber(w, 2)} g`;
+
+    if (pendingScaleCompareForScan) {
+      diffLimitPromptArmed = true;
+      pendingScaleCompareForScan = false;
+    }
     updateDiff();
   }
 }
@@ -1181,7 +1188,8 @@ function handleScan(raw) {
   const trimmed = (raw || '').trim();
   if (!trimmed) return;
 
-  diffLimitPromptArmed = true;
+  pendingScaleCompareForScan = true;
+  diffLimitPromptArmed = false;
 
   let labelId = trimmed;
   if (trimmed.startsWith('{')) {
@@ -1212,7 +1220,10 @@ function handleScan(raw) {
   }
 
   showStatus(`Data loaded for label ${labelId}.`, false);
-  updateDiff();
+  currentWeight = Number.NaN;
+  infoActual.textContent = '--';
+  infoDiff.textContent = '--';
+  infoDiff.className = 'font-mono float-right';
 }
 
 qrInput.addEventListener('click', (e) => {
