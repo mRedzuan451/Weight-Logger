@@ -126,6 +126,8 @@ const scaleRawData = document.getElementById('scale-raw-data');
 const currentWeightDisplay = document.getElementById('current-weight');
 const unitSelect = document.getElementById('unit-select');
 const lockWeightBtn = document.getElementById('lock-weight-btn');
+const manualWeightInput = document.getElementById('manual-weight-input');
+const manualWeightApplyBtn = document.getElementById('manual-weight-apply');
 
 const qrInput = document.getElementById('qr-input');
 
@@ -646,6 +648,30 @@ function parseScaleData(data) {
     }
 }
 
+function applyManualWeight() {
+    try {
+        const raw = manualWeightInput ? manualWeightInput.value : '';
+        const n = Number(raw);
+        if (!Number.isFinite(n)) {
+            showStatusMessage('Invalid manual weight value.', true);
+            manualWeightInput?.focus();
+            return;
+        }
+        if (n <= 0) {
+            showStatusMessage('Manual weight must be greater than zero.', true);
+            manualWeightInput?.focus();
+            return;
+        }
+
+        currentWeight = n;
+        currentWeightDisplay.textContent = formatNumber(n, 2);
+        setLockedWeight(currentWeight, 'manual', { showMessage: true });
+    } catch (err) {
+        console.error('Error applying manual weight:', err);
+        showStatusMessage('Failed to apply manual weight. See console.', true);
+    }
+}
+
 // --- QR Code Scanner ---
 qrInput.addEventListener('click', (event) => {
     event.target.value = '';
@@ -750,6 +776,16 @@ function handleQrData(data) {
 // --- Data Locking & Saving ---
 lockWeightBtn.addEventListener('click', () => {
     setLockedWeight(currentWeight, 'manual', { showMessage: true });
+});
+
+manualWeightApplyBtn?.addEventListener('click', () => {
+    applyManualWeight();
+});
+manualWeightInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        applyManualWeight();
+    }
 });
 
 unitSelect.addEventListener('change', () => {
