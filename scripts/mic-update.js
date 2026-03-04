@@ -33,7 +33,7 @@ function renderRows(items) {
   tableBody.innerHTML = '';
 
   if (!Array.isArray(items) || !items.length) {
-    tableBody.innerHTML = '<tr><td colspan="2" class="py-6 text-center text-gray-500">No items found.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="3" class="py-6 text-center text-gray-500">No items found.</td></tr>';
     return;
   }
 
@@ -47,52 +47,82 @@ function renderRows(items) {
     const qtyTd = document.createElement('td');
     qtyTd.className = 'px-4 py-2 whitespace-nowrap text-sm text-gray-700';
 
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.step = '1';
-    input.min = '0';
-    input.inputMode = 'numeric';
-    input.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500';
-    input.value = (typeof row.micQty === 'number' && Number.isFinite(row.micQty)) ? String(row.micQty) : '';
-    input.dataset.itemName = row.itemName || '';
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.step = '1';
+    qtyInput.min = '0';
+    qtyInput.inputMode = 'numeric';
+    qtyInput.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500';
+    qtyInput.value = (typeof row.micQty === 'number' && Number.isFinite(row.micQty)) ? String(row.micQty) : '';
+    qtyInput.dataset.itemName = row.itemName || '';
+    qtyInput.dataset.field = 'micQty';
 
-    input.addEventListener('keydown', (e) => {
+    qtyInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         updateBtn?.click();
       }
     });
 
-    qtyTd.appendChild(input);
+    qtyTd.appendChild(qtyInput);
+
+    const priceTd = document.createElement('td');
+    priceTd.className = 'px-4 py-2 whitespace-nowrap text-sm text-gray-700';
+
+    const priceInput = document.createElement('input');
+    priceInput.type = 'number';
+    priceInput.step = '0.01';
+    priceInput.min = '0';
+    priceInput.inputMode = 'decimal';
+    priceInput.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500';
+    priceInput.value = (typeof row.unitPrice === 'number' && Number.isFinite(row.unitPrice)) ? String(row.unitPrice) : '';
+    priceInput.dataset.itemName = row.itemName || '';
+    priceInput.dataset.field = 'unitPrice';
+
+    priceInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        updateBtn?.click();
+      }
+    });
+
+    priceTd.appendChild(priceInput);
     tr.appendChild(nameTd);
     tr.appendChild(qtyTd);
+    tr.appendChild(priceTd);
     tableBody.appendChild(tr);
   }
 }
 
 function collectRows() {
   if (!tableBody) return [];
-  const inputs = Array.from(tableBody.querySelectorAll('input[data-item-name]'));
-  const rows = [];
+  const inputs = Array.from(tableBody.querySelectorAll('input[data-item-name][data-field]'));
+  const byName = new Map();
 
   for (const input of inputs) {
     const itemName = (input.dataset.itemName || '').trim();
-    if (!itemName) continue;
+    const field = (input.dataset.field || '').trim();
+    if (!itemName || !field) continue;
+
+    if (!byName.has(itemName)) {
+      byName.set(itemName, { itemName });
+    }
+    const row = byName.get(itemName);
 
     const raw = String(input.value ?? '').trim();
     if (!raw) continue;
 
     const n = Number(raw);
     if (!Number.isFinite(n)) {
-      return { error: `Invalid MIC Quantity for ${itemName}.` };
+      return { error: `Invalid ${field === 'unitPrice' ? 'Unit Price' : 'MIC Quantity'} for ${itemName}.` };
     }
     if (n < 0) {
-      return { error: `MIC Quantity cannot be negative for ${itemName}.` };
+      return { error: `${field === 'unitPrice' ? 'Unit Price' : 'MIC Quantity'} cannot be negative for ${itemName}.` };
     }
-
-    rows.push({ itemName, micQty: n });
+    row[field] = n;
   }
 
+  const rows = Array.from(byName.values()).filter(r => (r.micQty !== undefined || r.unitPrice !== undefined));
   return { rows };
 }
 

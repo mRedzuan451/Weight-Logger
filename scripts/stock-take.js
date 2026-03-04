@@ -53,6 +53,7 @@ let diffLimitPromptArmed = false;
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
 const MIC_QUANTITIES_KEY = 'mic_quantities_by_item_name';
+const MIC_UNIT_PRICES_KEY = 'mic_unit_prices_by_item_name';
 
 const connectScaleBtn = document.getElementById('connect-scale-btn');
 const disconnectScaleBtn = document.getElementById('disconnect-scale-btn');
@@ -800,8 +801,28 @@ function saveMicQuantitiesByItemName(map) {
   }
 }
 
+function getMicUnitPricesByItemName() {
+  try {
+    const raw = localStorage.getItem(MIC_UNIT_PRICES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMicUnitPricesByItemName(map) {
+  try {
+    const payload = map && typeof map === 'object' ? map : {};
+    localStorage.setItem(MIC_UNIT_PRICES_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.error('Error saving MIC unit prices:', err);
+  }
+}
+
 window.getMicItemsForUpdate = function getMicItemsForUpdate() {
   const qtyMap = getMicQuantitiesByItemName();
+  const priceMap = getMicUnitPricesByItemName();
   const seen = new Set();
   const items = [];
   for (const it of stockItems) {
@@ -810,24 +831,41 @@ window.getMicItemsForUpdate = function getMicItemsForUpdate() {
     seen.add(name);
     const rawQty = qtyMap[name];
     const qty = typeof rawQty === 'number' ? rawQty : parseFloat(rawQty);
-    items.push({ itemName: name, micQty: Number.isFinite(qty) ? qty : null });
+
+    const rawPrice = priceMap[name];
+    const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice);
+
+    items.push({
+      itemName: name,
+      micQty: Number.isFinite(qty) ? qty : null,
+      unitPrice: Number.isFinite(price) ? price : null,
+    });
   }
   items.sort((a, b) => String(a.itemName).localeCompare(String(b.itemName)));
   return items;
 };
 
 window.saveMicQuantities = function saveMicQuantities(rows) {
-  const next = {};
+  const nextQty = {};
+  const nextPrice = {};
   if (Array.isArray(rows)) {
     for (const r of rows) {
       const name = (r && r.itemName ? String(r.itemName) : '').trim();
       if (!name) continue;
-      const n = typeof r.micQty === 'number' ? r.micQty : Number(r.micQty);
-      if (!Number.isFinite(n)) continue;
-      next[name] = n;
+
+      const qty = typeof r.micQty === 'number' ? r.micQty : Number(r.micQty);
+      if (Number.isFinite(qty)) {
+        nextQty[name] = qty;
+      }
+
+      const price = typeof r.unitPrice === 'number' ? r.unitPrice : Number(r.unitPrice);
+      if (Number.isFinite(price)) {
+        nextPrice[name] = price;
+      }
     }
   }
-  saveMicQuantitiesByItemName(next);
+  saveMicQuantitiesByItemName(nextQty);
+  saveMicUnitPricesByItemName(nextPrice);
   return true;
 };
 
@@ -1613,7 +1651,10 @@ function printStockTakeReport() {
       }
     }
 
-    // Group items by itemId (item number)
+    const micMap = getMicQuantitiesByItemName();
+    const unitPriceMap = getMicUnitPricesByItemName();
+
+    // Group items by itemId (Item Number)
     const groups = new Map();
     for (const item of stockItems) {
       const itemId = (item.itemId || '').toString() || '--';
@@ -1622,24 +1663,31 @@ function printStockTakeReport() {
         groups.set(itemId, {
           itemId,
           itemName: item.itemName || '',
-          expectedQty: 0,
           actualQty: 0,
-          expectedWeight: 0,
-          actualWeight: 0,
+          micQty: null,
+          unitPrice: null,
         });
       }
       const g = groups.get(itemId);
-      if (typeof item.expectedQty === 'number' && !Number.isNaN(item.expectedQty)) {
-        g.expectedQty += item.expectedQty;
-      }
       if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
         g.actualQty += item.actualQty;
       }
-      if (typeof item.expectedWeight === 'number' && !Number.isNaN(item.expectedWeight)) {
-        g.expectedWeight += item.expectedWeight;
+      if (g.micQty === null) {
+        const nameKey = (item.itemName || '').toString().trim();
+        const rawMic = micMap[nameKey];
+        const mic = typeof rawMic === 'number' ? rawMic : parseFloat(rawMic);
+        if (Number.isFinite(mic)) {
+          g.micQty = mic;
+        }
       }
-      if (typeof item.actualWeight === 'number' && !Number.isNaN(item.actualWeight)) {
-        g.actualWeight += item.actualWeight;
+
+      if (g.unitPrice === null) {
+        const nameKey = (item.itemName || '').toString().trim();
+        const rawPrice = unitPriceMap[nameKey];
+        const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice);
+        if (Number.isFinite(price)) {
+          g.unitPrice = price;
+        }
       }
     }
 
@@ -1652,74 +1700,84 @@ function printStockTakeReport() {
       return 0;
     });
 
-    const rowsHtml = grouped.map((g, index) => {
-      const totalDiffQty = g.actualQty - g.expectedQty;
-      const totalDiffWeight = g.actualWeight - g.expectedWeight;
+    const headers = [
+      'CONTROL NO.',
+      'ITEM NO',
+      'DESCRIPTION',
+      'SYSTEM QUANTITY',
+      'ACTUAL QUANTITY',
+      'VARIANCE QUANTITY',
+      'UNIT PRICE\n(RM)',
+      'SYSTEM AMOUNT\n(RM)',
+      'ACTUAL AMOUNT\n(RM)',
+      'VARIANCE AMOUNT\n(RM)',
+      'REMARK',
+      'Proposer',
+      'Opinion\nprovider',
+      'Approver',
+      'Report\nReceiver',
+    ];
 
-      const remarkText = (typeof stockTakeDiffLimitGrams === 'number' && Math.abs(totalDiffWeight) > stockTakeDiffLimitGrams)
-        ? 'Need review'
-        : '';
+    const rowsHtml = grouped.map((g) => {
+      const micQty = (typeof g.micQty === 'number' && Number.isFinite(g.micQty)) ? g.micQty : null;
+      const actualQty = (typeof g.actualQty === 'number' && Number.isFinite(g.actualQty)) ? g.actualQty : null;
+      const varianceQty = (micQty !== null && actualQty !== null) ? (micQty - actualQty) : null;
 
-      const expectedQtyText = Number.isFinite(g.expectedQty) ? formatNumber(g.expectedQty, 0) : '';
-      const actualQtyText = Number.isFinite(g.actualQty) ? formatNumber(g.actualQty, 0) : '';
-      const diffQtyText = Number.isFinite(totalDiffQty) ? formatNumber(totalDiffQty, 0) : '';
-      const expectedWeightText = Number.isFinite(g.expectedWeight) ? `${formatNumber(g.expectedWeight, 2)} g` : '';
-      const actualWeightText = Number.isFinite(g.actualWeight) ? `${formatNumber(g.actualWeight, 2)} g` : '';
-      const diffWeightText = Number.isFinite(totalDiffWeight) ? `${formatNumber(totalDiffWeight, 2)} g` : '';
+      const unitPrice = (typeof g.unitPrice === 'number' && Number.isFinite(g.unitPrice)) ? g.unitPrice : null;
+      const systemAmount = (unitPrice !== null && micQty !== null) ? (unitPrice * micQty) : null;
+      const actualAmount = (unitPrice !== null && actualQty !== null) ? (unitPrice * actualQty) : null;
+      const varianceAmount = (unitPrice !== null && varianceQty !== null) ? (unitPrice * varianceQty) : null;
+
+      const micText = micQty !== null ? formatNumber(micQty, 0) : '';
+      const actualText = actualQty !== null ? formatNumber(actualQty, 0) : '';
+      const varianceText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
+
+      const unitPriceText = unitPrice !== null ? formatNumber(unitPrice, 2) : '';
+      const systemAmountText = systemAmount !== null ? formatNumber(systemAmount, 2) : '';
+      const actualAmountText = actualAmount !== null ? formatNumber(actualAmount, 2) : '';
+      const varianceAmountText = varianceAmount !== null ? formatNumber(varianceAmount, 2) : '';
 
       return `
         <tr>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:center;">${index + 1}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${g.itemId}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${g.itemName}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedQtyText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualQtyText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffQtyText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${expectedWeightText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${actualWeightText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt; text-align:right;">${diffWeightText}</td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;"></td>
-          <td style="padding:4px 8px; border:1px solid #e5e7eb; font-size:10pt;">${remarkText}</td>
+          <td class="cell center"></td>
+          <td class="cell">${g.itemId}</td>
+          <td class="cell">${g.itemName}</td>
+          <td class="cell right">${micText}</td>
+          <td class="cell right">${actualText}</td>
+          <td class="cell right">${varianceText}</td>
+          <td class="cell right">${unitPriceText}</td>
+          <td class="cell right">${systemAmountText}</td>
+          <td class="cell right">${actualAmountText}</td>
+          <td class="cell right">${varianceAmountText}</td>
+          <td class="cell"></td>
+          <td class="cell"></td>
+          <td class="cell"></td>
+          <td class="cell"></td>
+          <td class="cell"></td>
         </tr>
       `;
     }).join('');
-
-    const signatureHtml = `
-      <div style="margin-bottom:16px; display:flex; justify-content:flex-end;">
-        <div style="display:flex;">
-          <div style="width:120px;">
-            <div style="border:1px solid #111827; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
-              Issue
-            </div>
-          </div>
-          <div style="width:120px;">
-            <div style="border:1px solid #111827; border-left:none; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
-              Confirm
-            </div>
-          </div>
-          <div style="width:120px;">
-            <div style="border:1px solid #111827; border-left:none; height:50px; display:flex; align-items:flex-end; justify-content:center; font-size:10pt; font-weight:600;">
-              Approved
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
 
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8" />
-        <title>Stock Record Report</title>
+        <title>Stock Take Discrepancy Report</title>
         <style>
-          @page { size: A4 landscape; margin: 16mm; }
-          body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11pt; color: #111827; }
-          h1 { font-size: 18pt; margin: 0 0 4px 0; }
-          .subhead { font-size: 10pt; color: #4b5563; margin-bottom: 12px; }
+          @page { size: A4 landscape; margin: 10mm; }
+          body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111827; }
           table { width: 100%; border-collapse: collapse; }
-          th { background: #f3f4f6; font-size: 10pt; text-align: left; padding: 4px 8px; border: 1px solid #e5e7eb; }
+          .title { font-size: 12pt; font-weight: 700; letter-spacing: 0.2px; margin: 12px 0 8px 0; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 9pt; }
+          .meta-row { display: flex; gap: 8px; align-items: baseline; }
+          .meta-label { min-width: 90px; font-weight: 700; }
+          .meta-line { flex: 1; border-bottom: 1px solid #111827; height: 12px; }
+          .report-wrap { margin-top: 10px; }
+          th { background: #fde68a; border: 1px solid #111827; padding: 4px 6px; font-size: 8.5pt; text-align: center; vertical-align: middle; }
+          .cell { border: 1px solid #111827; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
+          .right { text-align: right; }
+          .center { text-align: center; }
           .print-controls { position: sticky; top: 0; z-index: 50; background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 10px 0; margin-bottom: 12px; }
           .print-controls-inner { display: flex; justify-content: flex-end; gap: 8px; }
           .btn { font: inherit; font-size: 10pt; padding: 8px 12px; border-radius: 8px; cursor: pointer; border: 1px solid #d1d5db; background: #ffffff; }
@@ -1734,34 +1792,30 @@ function printStockTakeReport() {
             <button class="btn btn-primary" onclick="window.print()">Print</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
+        <div class="meta-grid">
+          <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
+          <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
+          <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
           <div>
-            <h1>Stock Record</h1>
-            <div class="subhead">Generated on ${dateStr} at ${timeStr}${generatedByText ? ` by ${generatedByText}` : ''}</div>
+            <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
+            <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
           </div>
         </div>
-        ${signatureHtml}
-        <table>
-          <thead>
-            <tr>
-              <th style="width:24px; text-align:center;">No</th>
-              <th>Item Number</th>
-              <th>Item Name</th>
-              <th style="text-align:right;">Total Expected Qty</th>
-              <th style="text-align:right;">Total Actual Qty</th>
-              <th style="text-align:right;">Total Diff Qty</th>
-              <th style="text-align:right;">Expected Weight</th>
-              <th style="text-align:right;">Actual Weight</th>
-              <th style="text-align:right;">Diff Weight</th>
-              <th>Final Judgement</th>
-              <th>Comment</th>
-              <th>Remark</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
+
+        <div class="title">STOCK TAKE DISCREPANCY REPORT</div>
+
+        <div class="report-wrap">
+          <table>
+            <thead>
+              <tr>
+                ${headers.map(h => `<th>${String(h).replace(/\n/g, '<br/>')}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
       </body>
       </html>
     `;
