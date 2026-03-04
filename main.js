@@ -15,6 +15,21 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.on('did-create-window', (childWindow, details) => {
+    try {
+      const childUrl = (details && typeof details.url === 'string') ? details.url : '';
+      if (!childUrl) return;
+
+      if (childUrl.includes('mic-update.html')) {
+        childWindow.setMenuBarVisibility(false);
+        childWindow.setAutoHideMenuBar(true);
+        childWindow.removeMenu();
+      }
+    } catch {
+      // ignore
+    }
+  });
+
   const ses = mainWindow.webContents.session;
 
   ses.on('select-serial-port', async (event, portList, webContents, callback) => {

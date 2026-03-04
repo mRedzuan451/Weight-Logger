@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Update MIC</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#1f2937" />
+  <link rel="icon" type="image/png" sizes="256x256" href="./assets/img/logoWeightLogger_256.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/img/logoWeightLogger_512.png">
+  <link rel="stylesheet" href="./assets/css/tailwind.min.css">
+</head>
+<body class="min-h-screen font-sans bg-gray-100 p-6">
+  <div class="w-full max-w-4xl mx-auto mt-4 space-y-4">
+    <div class="flex items-center justify-between gap-2">
+      <h1 class="text-2xl font-bold text-gray-800">Update MIC</h1>
+      <div class="flex gap-2">
+        <button id="mic-cancel-btn" type="button" class="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Close</button>
+        <button id="mic-update-btn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Update</button>
+      </div>
+    </div>
+
+    <div id="mic-status" class="hidden px-4 py-3 rounded-lg text-sm font-semibold"></div>
+
+    <div class="bg-white rounded-lg shadow">
+      <div class="overflow-x-auto">
+        <div class="max-h-[70vh] overflow-y-auto rounded-lg border border-gray-200">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50 sticky top-0 z-10">
+              <tr>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">MIC Quantity</th>
+              </tr>
+            </thead>
+            <tbody id="mic-table-body" class="bg-white divide-y divide-gray-200">
+              <tr>
+                <td colspan="2" class="py-6 text-center text-gray-500">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./scripts/mic-update.js" defer></script>
+</body>
+</html>

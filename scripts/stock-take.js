@@ -52,6 +52,7 @@ let lastDiffLimitPromptKey = '';
 let diffLimitPromptArmed = false;
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
+const MIC_QUANTITIES_KEY = 'mic_quantities_by_item_name';
 
 const connectScaleBtn = document.getElementById('connect-scale-btn');
 const disconnectScaleBtn = document.getElementById('disconnect-scale-btn');
@@ -59,6 +60,14 @@ const scaleStatus = document.getElementById('scale-status');
 const scaleRawData = document.getElementById('scale-raw-data');
 
 const qrInput = document.getElementById('qr-input');
+const stockTakeModeBarcodeBtn = document.getElementById('stocktake-mode-barcode');
+const stockTakeModeManualBtn = document.getElementById('stocktake-mode-manual');
+const stockTakeBarcodeBox = document.getElementById('stocktake-barcode-box');
+const stockTakeManualBox = document.getElementById('stocktake-manual-box');
+const stockTakeManualLabelId = document.getElementById('stocktake-manual-label-id');
+const stockTakeManualSubmitBtn = document.getElementById('stocktake-manual-submit');
+const stockTakeManualWeight = document.getElementById('stocktake-manual-weight');
+const stockTakeManualWeightApplyBtn = document.getElementById('stocktake-manual-weight-apply');
 const infoLabelId = document.getElementById('info-label-id');
 const infoItemName = document.getElementById('info-item-name');
 const infoStatus = document.getElementById('info-status');
@@ -70,6 +79,7 @@ const logoutBtn = document.getElementById('logout-btn');
 const tableBody = document.getElementById('stocktake-table-body');
 const exportBtn = document.getElementById('stocktake-export-btn');
 const applyBtn = document.getElementById('stocktake-apply-btn');
+const updateMicBtn = document.getElementById('stocktake-update-mic-btn');
 const printBtn = document.getElementById('stocktake-print-btn');
 const confirmModal = document.getElementById('confirm-modal');
 const confirmModalOkBtn = document.getElementById('confirm-modal-ok');
@@ -83,6 +93,9 @@ const stockTakeSortKeys = ['labelId', 'itemName', 'expectedQty', 'expectedWeight
 let qrScanBuffer = '';
 let qrScanBufferTimer = null;
 const DEBUG_QR_FOCUS = false;
+
+const STOCK_TAKE_SCAN_MODE_KEY = 'stock_take_scan_mode';
+let stockTakeScanMode = 'barcode';
 
 let pendingScaleCompareForScan = false;
 
@@ -99,6 +112,7 @@ function ensureQrInputInteractive() {
 }
 
 function refocusQrInputSoon() {
+  if (stockTakeScanMode !== 'barcode') return;
   try {
     ensureQrInputInteractive();
   } catch {
@@ -137,6 +151,51 @@ function refocusQrInputSoon() {
     } catch {
     }
   }, 0);
+}
+
+function setStockTakeScanMode(nextMode) {
+  stockTakeScanMode = nextMode === 'manual' ? 'manual' : 'barcode';
+  try {
+    localStorage.setItem(STOCK_TAKE_SCAN_MODE_KEY, stockTakeScanMode);
+  } catch {
+  }
+
+  if (stockTakeScanMode === 'manual') {
+    if (stockTakeModeManualBtn) {
+      stockTakeModeManualBtn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors';
+    }
+    if (stockTakeModeBarcodeBtn) {
+      stockTakeModeBarcodeBtn.className = 'flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg transition-colors';
+    }
+    stockTakeBarcodeBox?.classList.add('hidden');
+    stockTakeManualBox?.classList.remove('hidden');
+    try {
+      qrInput.value = '';
+    } catch {
+    }
+    qrInput?.setAttribute('disabled', 'disabled');
+    try {
+      qrInput.disabled = true;
+    } catch {
+    }
+    setTimeout(() => stockTakeManualLabelId?.focus(), 0);
+    return;
+  }
+
+  if (stockTakeModeBarcodeBtn) {
+    stockTakeModeBarcodeBtn.className = 'flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors';
+  }
+  if (stockTakeModeManualBtn) {
+    stockTakeModeManualBtn.className = 'flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg transition-colors';
+  }
+  stockTakeBarcodeBox?.classList.remove('hidden');
+  stockTakeManualBox?.classList.add('hidden');
+  try {
+    qrInput.disabled = false;
+    qrInput.removeAttribute('disabled');
+  } catch {
+  }
+  refocusQrInputSoon();
 }
 
 function formatNumber(value, decimals = 2) {
@@ -722,6 +781,68 @@ function saveStockTakeState() {
   }
 }
 
+function getMicQuantitiesByItemName() {
+  try {
+    const raw = localStorage.getItem(MIC_QUANTITIES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMicQuantitiesByItemName(map) {
+  try {
+    const payload = map && typeof map === 'object' ? map : {};
+    localStorage.setItem(MIC_QUANTITIES_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.error('Error saving MIC quantities:', err);
+  }
+}
+
+window.getMicItemsForUpdate = function getMicItemsForUpdate() {
+  const qtyMap = getMicQuantitiesByItemName();
+  const seen = new Set();
+  const items = [];
+  for (const it of stockItems) {
+    const name = (it && it.itemName ? String(it.itemName) : '').trim() || '--';
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const rawQty = qtyMap[name];
+    const qty = typeof rawQty === 'number' ? rawQty : parseFloat(rawQty);
+    items.push({ itemName: name, micQty: Number.isFinite(qty) ? qty : null });
+  }
+  items.sort((a, b) => String(a.itemName).localeCompare(String(b.itemName)));
+  return items;
+};
+
+window.saveMicQuantities = function saveMicQuantities(rows) {
+  const next = {};
+  if (Array.isArray(rows)) {
+    for (const r of rows) {
+      const name = (r && r.itemName ? String(r.itemName) : '').trim();
+      if (!name) continue;
+      const n = typeof r.micQty === 'number' ? r.micQty : Number(r.micQty);
+      if (!Number.isFinite(n)) continue;
+      next[name] = n;
+    }
+  }
+  saveMicQuantitiesByItemName(next);
+  return true;
+};
+
+function openMicUpdateWindow() {
+  try {
+    const url = new URL('mic-update.html', window.location.href);
+    const w = window.open(url.toString(), 'micUpdate', 'width=900,height=700,resizable=yes,scrollbars=yes');
+    if (!w) {
+      alert('Unable to open MIC update window. Please allow popups for this app.');
+    }
+  } catch {
+    alert('Failed to open MIC update window.');
+  }
+}
+
 function renderStockTable() {
   if (!tableBody) return;
   tableBody.innerHTML = '';
@@ -1224,9 +1345,15 @@ function handleScan(raw) {
   infoActual.textContent = '--';
   infoDiff.textContent = '--';
   infoDiff.className = 'font-mono float-right';
+
+  try {
+    if (stockTakeManualWeight) stockTakeManualWeight.value = '';
+  } catch {
+  }
 }
 
 qrInput.addEventListener('click', (e) => {
+  if (stockTakeScanMode !== 'barcode') return;
   e.target.value = '';
   qrScanBuffer = '';
   if (qrScanBufferTimer) {
@@ -1253,6 +1380,7 @@ window.addEventListener('focus', () => {
 document.addEventListener('keydown', (e) => {
   try {
     if (!qrInput) return;
+    if (stockTakeScanMode !== 'barcode') return;
     const active = document?.activeElement;
     if (active === qrInput) return;
 
@@ -1270,6 +1398,7 @@ document.addEventListener('keydown', (e) => {
   }
 }, true);
 qrInput.addEventListener('keydown', (e) => {
+  if (stockTakeScanMode !== 'barcode') return;
   try {
     if (DEBUG_QR_FOCUS) {
       console.log('[stock-take] qrInput keydown', {
@@ -1312,6 +1441,10 @@ qrInput.addEventListener('keydown', (e) => {
   }
 });
 qrInput.addEventListener('change', (e) => {
+  if (stockTakeScanMode !== 'barcode') {
+    e.target.value = '';
+    return;
+  }
   const value = e.target.value;
   e.target.value = '';
   handleScan(value);
@@ -1346,6 +1479,7 @@ disconnectScaleBtn.addEventListener('click', () => {
 
 exportBtn?.addEventListener('click', exportStockTakeCsv);
 applyBtn?.addEventListener('click', applyStockTakeUpdates);
+updateMicBtn?.addEventListener('click', openMicUpdateWindow);
 printBtn?.addEventListener('click', printStockTakeReport);
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -1353,10 +1487,78 @@ window.addEventListener('DOMContentLoaded', () => {
   refreshStockTakeTolerance();
   refreshStockTakeDiffLimit();
   logoutBtn?.addEventListener('click', handleLogout);
+
+  stockTakeModeBarcodeBtn?.addEventListener('click', () => setStockTakeScanMode('barcode'));
+  stockTakeModeManualBtn?.addEventListener('click', () => setStockTakeScanMode('manual'));
+  stockTakeManualSubmitBtn?.addEventListener('click', () => {
+    const value = (stockTakeManualLabelId?.value || '').trim();
+    if (!value) {
+      showStatus('Please key in a label ID.', true);
+      stockTakeManualLabelId?.focus();
+      return;
+    }
+    try {
+      stockTakeManualLabelId.value = '';
+    } catch {
+    }
+    handleScan(value);
+    stockTakeManualLabelId?.focus();
+  });
+  stockTakeManualLabelId?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      stockTakeManualSubmitBtn?.click();
+    }
+  });
+
+  stockTakeManualWeightApplyBtn?.addEventListener('click', () => {
+    const labelId = (infoLabelId?.textContent || '').trim();
+    if (!labelId || labelId === '--') {
+      showStatus('Please load a label first (submit label ID).', true);
+      stockTakeManualLabelId?.focus();
+      return;
+    }
+
+    const expectedText = (infoExpected?.textContent || '').trim();
+    if (!expectedText || expectedText === '--') {
+      showStatus('Expected weight not loaded for this label.', true);
+      return;
+    }
+
+    const raw = (stockTakeManualWeight?.value ?? '').toString().trim();
+    const w = Number(raw);
+    if (!Number.isFinite(w) || w < 0) {
+      showStatus('Please enter a valid manual weight (grams).', true);
+      stockTakeManualWeight?.focus();
+      return;
+    }
+
+    currentWeight = w;
+    infoActual.textContent = `${formatNumber(w, 2)} g`;
+    diffLimitPromptArmed = true;
+    pendingScaleCompareForScan = false;
+    updateDiff();
+    stockTakeManualWeight?.focus();
+  });
+  stockTakeManualWeight?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      stockTakeManualWeightApplyBtn?.click();
+    }
+  });
+
   resetInfo();
   loadInStockItems();
   ensureQrInputInteractive();
-  qrInput.focus();
+
+  try {
+    const savedMode = localStorage.getItem(STOCK_TAKE_SCAN_MODE_KEY);
+    if (savedMode === 'manual' || savedMode === 'barcode') {
+      stockTakeScanMode = savedMode;
+    }
+  } catch {
+  }
+  setStockTakeScanMode(stockTakeScanMode);
 
   if (tableBody) {
     // Find the table element that contains the table body
