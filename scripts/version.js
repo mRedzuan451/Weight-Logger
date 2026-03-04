@@ -2,4 +2,4 @@
 
 // Single source of truth for the app version
 // Update this value when you make a new release.
-self.APP_VERSION = 'v1.0.4';
+self.APP_VERSION = 'v1.0.5';

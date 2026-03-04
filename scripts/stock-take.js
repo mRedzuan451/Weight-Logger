@@ -1769,7 +1769,8 @@ function printStockTakeReport() {
           body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111827; }
           table { width: 100%; border-collapse: collapse; }
           .title { font-size: 12pt; font-weight: 700; letter-spacing: 0.2px; margin: 12px 0 8px 0; }
-          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 9pt; }
+          .header-wrap { display: flex; justify-content: flex-start; align-items: flex-start; gap: 12px; width: 100%; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 9pt; flex: 1; }
           .meta-row { display: flex; gap: 8px; align-items: baseline; }
           .meta-label { min-width: 90px; font-weight: 700; }
           .meta-line { flex: 1; border-bottom: 1px solid #111827; height: 12px; }
@@ -1778,6 +1779,15 @@ function printStockTakeReport() {
           .cell { border: 1px solid #111827; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
           .right { text-align: right; }
           .center { text-align: center; }
+          .loa-wrap { display: flex; gap: 10px; align-items: flex-start; margin-left: auto; }
+          .loa-box { border: 1px solid #111827; }
+          .loa-title { background: #fde68a; font-size: 8.5pt; font-weight: 700; padding: 4px 8px; border-bottom: 1px solid #111827; text-align: center; }
+          .loa-table { border-collapse: collapse; width: 320px; font-size: 8.5pt; }
+          .loa-table th { background: #ffffff; border: 1px solid #111827; padding: 3px 6px; font-size: 8.5pt; }
+          .loa-table td { border: 1px solid #111827; padding: 3px 6px; font-size: 8.5pt; }
+          .issued-box { width: 160px; border: 1px solid #111827; }
+          .issued-title { background: #ffffff; font-size: 9pt; font-weight: 700; padding: 4px 8px; border-bottom: 1px solid #111827; text-align: center; }
+          .issued-body { height: 54px; }
           .print-controls { position: sticky; top: 0; z-index: 50; background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 10px 0; margin-bottom: 12px; }
           .print-controls-inner { display: flex; justify-content: flex-end; gap: 8px; }
           .btn { font: inherit; font-size: 10pt; padding: 8px 12px; border-radius: 8px; cursor: pointer; border: 1px solid #d1d5db; background: #ffffff; }
@@ -1792,13 +1802,44 @@ function printStockTakeReport() {
             <button class="btn btn-primary" onclick="window.print()">Print</button>
           </div>
         </div>
-        <div class="meta-grid">
-          <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
-          <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
-          <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
-          <div>
-            <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
-            <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
+        <div class="header-wrap">
+          <div class="meta-grid">
+            <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
+            <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
+            <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
+            <div>
+              <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
+              <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
+            </div>
+          </div>
+
+          <div class="loa-wrap">
+            <div class="loa-box">
+              <div class="loa-title">OMB LIMIT OF AUTHORITY (LOA)</div>
+              <table class="loa-table">
+                <thead>
+                  <tr>
+                    <th style="width: 50%;">APPROVED BY</th>
+                    <th style="width: 50%;">AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Dept Mgr/Snr Mgr/Div Mgr</td>
+                    <td>&lt;0.1 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;2.98 k RM</td>
+                  </tr>
+                  <tr>
+                    <td>Managing Director</td>
+                    <td>&lt;1.0 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;29.80 k RM</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="issued-box">
+              <div class="issued-title">Issued by</div>
+              <div class="issued-body"></div>
+            </div>
           </div>
         </div>
 
