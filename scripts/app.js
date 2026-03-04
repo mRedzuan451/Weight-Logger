@@ -130,6 +130,16 @@ const manualWeightInput = document.getElementById('manual-weight-input');
 const manualWeightApplyBtn = document.getElementById('manual-weight-apply');
 
 const qrInput = document.getElementById('qr-input');
+const scanModeBarcodeBtn = document.getElementById('scan-mode-barcode');
+const scanModeManualBtn = document.getElementById('scan-mode-manual');
+const manualEntryForm = document.getElementById('manual-entry-form');
+const manualLabelIdInput = document.getElementById('manual-label-id');
+const manualItemIdInput = document.getElementById('manual-item-id');
+const manualItemNameInput = document.getElementById('manual-item-name');
+const manualLotNoInput = document.getElementById('manual-lot-no');
+const manualMfgLotInput = document.getElementById('manual-mfg-lot');
+const manualQtyInput = document.getElementById('manual-qty');
+const manualEntrySubmitBtn = document.getElementById('manual-entry-submit');
 
 const infoLabelId = document.getElementById('info-label-id');
 const infoItemId = document.getElementById('info-item-id');
@@ -673,17 +683,147 @@ function applyManualWeight() {
 }
 
 // --- QR Code Scanner ---
+let scanInputMode = 'barcode';
+
+function setScanInputMode(mode) {
+    scanInputMode = mode === 'manual' ? 'manual' : 'barcode';
+
+    if (scanModeBarcodeBtn && scanModeManualBtn) {
+        if (scanInputMode === 'barcode') {
+            scanModeBarcodeBtn.className = 'px-3 py-1 text-sm font-semibold bg-indigo-600 text-white';
+            scanModeManualBtn.className = 'px-3 py-1 text-sm font-semibold bg-white text-gray-700';
+        } else {
+            scanModeBarcodeBtn.className = 'px-3 py-1 text-sm font-semibold bg-white text-gray-700';
+            scanModeManualBtn.className = 'px-3 py-1 text-sm font-semibold bg-indigo-600 text-white';
+        }
+    }
+
+    if (qrInput) {
+        if (scanInputMode === 'barcode') {
+            qrInput.classList.remove('hidden');
+            qrInput.placeholder = 'Click here and then scan...';
+        } else {
+            qrInput.classList.add('hidden');
+        }
+    }
+    if (manualEntryForm) {
+        if (scanInputMode === 'manual') {
+            manualEntryForm.classList.remove('hidden');
+        } else {
+            manualEntryForm.classList.add('hidden');
+        }
+    }
+}
+
+function submitManualEntry() {
+    try {
+        const labelId = (manualLabelIdInput?.value || '').trim();
+        if (!labelId) {
+            showStatusMessage('Label ID is required.', true);
+            manualLabelIdInput?.focus();
+            return;
+        }
+
+        if (hasActiveStockInForLabel(labelId)) {
+            window.alert(`Label ${labelId} is already stocked in and not yet stocked out.`);
+            return;
+        }
+
+        const itemId = (manualItemIdInput?.value || '').trim() || '--';
+        const itemName = (manualItemNameInput?.value || '').trim() || '--';
+        const lotNo = (manualLotNoInput?.value || '').trim() || '--';
+        const manufacturingLot = (manualMfgLotInput?.value || '').trim() || '--';
+        const qtyRaw = (manualQtyInput?.value || '').trim();
+        const quantity = qtyRaw ? String(qtyRaw) : '--';
+
+        const baseScanned = {
+            labelId,
+            itemId,
+            itemName,
+            lotNo,
+            manufacturingLot,
+            quantity,
+            originalQrData: {
+                manualEntry: true,
+                labelId,
+                itemId,
+                itemName,
+                lotNo,
+                manufacturingLot,
+                quantity,
+            }
+        };
+
+        const adjusted = applyPartialPacketLogic(baseScanned);
+        currentScannedData = adjusted;
+        infoLabelId.textContent = adjusted.labelId || '--';
+        infoItemId.textContent = adjusted.itemId || '--';
+        infoItemName.textContent = adjusted.itemName || '--';
+        infoLotNo.textContent = adjusted.lotNo || '--';
+        infoMfgLot.textContent = adjusted.manufacturingLot || '--';
+        infoQuantity.textContent = adjusted.quantity || '--';
+        if (infoPrevWeight) {
+            if (adjusted.previousWeightDisplay) {
+                infoPrevWeight.textContent = adjusted.previousWeightDisplay;
+            } else {
+                infoPrevWeight.textContent = '--';
+            }
+        }
+        showStatusMessage('Manual entry saved for this label.', false);
+        checkSaveButtonState();
+    } catch (err) {
+        console.error('Error submitting manual entry:', err);
+        showStatusMessage('Failed to submit manual entry. See console.', true);
+    }
+}
+
+scanModeBarcodeBtn?.addEventListener('click', () => {
+    setScanInputMode('barcode');
+    try { qrInput?.focus(); } catch {}
+});
+scanModeManualBtn?.addEventListener('click', () => {
+    setScanInputMode('manual');
+    try { manualLabelIdInput?.focus(); } catch {}
+});
+
 qrInput.addEventListener('click', (event) => {
-    event.target.value = '';
     event.target.classList.remove('border-red-500', 'ring-red-300');
+    if (scanInputMode === 'barcode') {
+        event.target.value = '';
+    }
 });
 qrInput.addEventListener('change', (event) => {
+    if (scanInputMode !== 'barcode') {
+        return;
+    }
     const data = event.target.value;
     if (data) {
         handleQrData(data);
         event.target.value = '';
     }
 });
+manualEntrySubmitBtn?.addEventListener('click', () => {
+    submitManualEntry();
+});
+const manualEntryInputs = [
+    manualLabelIdInput,
+    manualItemIdInput,
+    manualItemNameInput,
+    manualLotNoInput,
+    manualMfgLotInput,
+    manualQtyInput,
+].filter(Boolean);
+manualEntryInputs.forEach((el) => {
+    el.addEventListener('keydown', (event) => {
+        if (scanInputMode !== 'manual') return;
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            submitManualEntry();
+        }
+    });
+});
+
+setScanInputMode('barcode');
 
 function handleQrData(data) {
     const raw = (data || '').trim();

@@ -105,8 +105,33 @@
                     <!-- QR Scanner -->
                     <div class="bg-white p-6 rounded-lg shadow-lg">
                         <h2 class="text-2xl font-semibold mb-4 border-b pb-3">2. Scan Label</h2>
-                        <label for="qr-input" class="block text-sm font-medium text-gray-700 mb-1">Scan QR code into this field:</label>
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <label for="qr-input" class="block text-sm font-medium text-gray-700">Scan/Key in label:</label>
+                            <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                                <button id="scan-mode-barcode" type="button" class="px-3 py-1 text-sm font-semibold bg-indigo-600 text-white">Barcode</button>
+                                <button id="scan-mode-manual" type="button" class="px-3 py-1 text-sm font-semibold bg-white text-gray-700">Manual</button>
+                            </div>
+                        </div>
                         <input type="text" id="qr-input" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Click here and then scan...">
+
+                        <div id="manual-entry-form" class="hidden mt-3 space-y-2">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input id="manual-label-id" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Label ID" />
+                                <input id="manual-item-id" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Item ID" />
+                            </div>
+                            <input id="manual-item-name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Item Name" />
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input id="manual-lot-no" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Lot No" />
+                                <input id="manual-mfg-lot" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Mfg Lot" />
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input id="manual-qty" type="number" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:col-span-2" placeholder="Quantity" />
+                                <button id="manual-entry-submit" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+
                         <p class="text-xs text-gray-500 mt-2">Note: QR code must be JSON format. E.g., {"id": "LBL-123", "item": "ITM-456", ...}</p>
                     </div>
 
