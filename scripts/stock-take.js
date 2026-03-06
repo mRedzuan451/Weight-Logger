@@ -577,6 +577,11 @@ function executeStockTakeUpdates() {
 
       rec.measuredWeight = newWeight;
       rec.unit = 'g';
+
+      if (typeof qtyAfter === 'number' && !Number.isNaN(qtyAfter)) {
+        const qtyRounded = Math.round(qtyAfter);
+        rec.quantity = qtyRounded;
+      }
     });
 
     saveWeightRecordsArray(ins);
@@ -1540,6 +1545,19 @@ window.addEventListener('DOMContentLoaded', () => {
       const titleEl = document.getElementById('page-title');
       if (titleEl) titleEl.textContent = 'Special Stock Take';
     }
+
+    const modeEl = document.getElementById('info-mode');
+    if (modeEl) modeEl.textContent = isSst ? 'SST' : 'ST';
+
+    if (updateMicBtn) {
+      if (isSst) {
+        updateMicBtn.classList.add('hidden');
+        updateMicBtn.style.display = 'none';
+      } else {
+        updateMicBtn.classList.remove('hidden');
+        updateMicBtn.style.display = 'inline-block';
+      }
+    }
   } catch {
   }
 
@@ -1655,6 +1673,13 @@ function printStockTakeReport() {
       return;
     }
 
+    let isSst = false;
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      isSst = params.get('sst') === '1' || params.get('sst') === 'true';
+    } catch {
+    }
+
     const now = new Date();
     const dateStr = now.toLocaleDateString();
     const timeStr = now.toLocaleTimeString();
@@ -1721,28 +1746,44 @@ function printStockTakeReport() {
       return 0;
     });
 
-    const headers = [
-      'CONTROL NO.',
-      'ITEM NO',
-      'DESCRIPTION',
-      'SYSTEM QUANTITY',
-      'ACTUAL QUANTITY',
-      'VARIANCE QUANTITY',
-      'UNIT PRICE\n(RM)',
-      'SYSTEM AMOUNT\n(RM)',
-      'ACTUAL AMOUNT\n(RM)',
-      'VARIANCE AMOUNT\n(RM)',
-      'REMARK',
-      'Proposer',
-      'Opinion\nprovider',
-      'Approver',
-      'Report\nReceiver',
-    ];
+    const headers = isSst
+      ? [
+        'No',
+        'Item No',
+        'Description',
+        'Record Qty',
+        'Actual Qty',
+        'Variance',
+        'Unit Price (RM)',
+        'Record Amount (RM)',
+        'Actual Amount (RM)',
+        'Variance Amount (RM)',
+        'Remark',
+      ]
+      : [
+        'CONTROL NO.',
+        'ITEM NO',
+        'DESCRIPTION',
+        'SYSTEM QUANTITY',
+        'ACTUAL QUANTITY',
+        'VARIANCE QUANTITY',
+        'UNIT PRICE\n(RM)',
+        'SYSTEM AMOUNT\n(RM)',
+        'ACTUAL AMOUNT\n(RM)',
+        'VARIANCE AMOUNT\n(RM)',
+        'REMARK',
+        'Proposer',
+        'Opinion\nprovider',
+        'Approver',
+        'Report\nReceiver',
+      ];
 
-    const rowsHtml = grouped.map((g) => {
+    const rowsHtml = grouped.map((g, idx) => {
       const micQty = (typeof g.micQty === 'number' && Number.isFinite(g.micQty)) ? g.micQty : null;
       const actualQty = (typeof g.actualQty === 'number' && Number.isFinite(g.actualQty)) ? g.actualQty : null;
-      const varianceQty = (micQty !== null && actualQty !== null) ? (micQty - actualQty) : null;
+      const varianceQty = (micQty !== null && actualQty !== null)
+        ? (isSst ? (actualQty - micQty) : (micQty - actualQty))
+        : null;
 
       const unitPrice = (typeof g.unitPrice === 'number' && Number.isFinite(g.unitPrice)) ? g.unitPrice : null;
       const systemAmount = (unitPrice !== null && micQty !== null) ? (unitPrice * micQty) : null;
@@ -1757,6 +1798,25 @@ function printStockTakeReport() {
       const systemAmountText = systemAmount !== null ? formatNumber(systemAmount, 2) : '';
       const actualAmountText = actualAmount !== null ? formatNumber(actualAmount, 2) : '';
       const varianceAmountText = varianceAmount !== null ? formatNumber(varianceAmount, 2) : '';
+
+      if (isSst) {
+        const noText = String(idx + 1);
+        return `
+          <tr>
+            <td class="cell center">${noText}</td>
+            <td class="cell">${g.itemId}</td>
+            <td class="cell">${g.itemName}</td>
+            <td class="cell right">${micText}</td>
+            <td class="cell right">${actualText}</td>
+            <td class="cell right">${varianceText}</td>
+            <td class="cell right">${unitPriceText}</td>
+            <td class="cell right">${systemAmountText}</td>
+            <td class="cell right">${actualAmountText}</td>
+            <td class="cell right">${varianceAmountText}</td>
+            <td class="cell"></td>
+          </tr>
+        `;
+      }
 
       return `
         <tr>
@@ -1784,7 +1844,7 @@ function printStockTakeReport() {
       <html>
       <head>
         <meta charset="UTF-8" />
-        <title>Stock Take Discrepancy Report</title>
+        <title>${isSst ? 'Special Stock Take Report' : 'Stock Take Discrepancy Report'}</title>
         <style>
           @page { size: A4 landscape; margin: 10mm; }
           body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111827; }
@@ -1864,7 +1924,7 @@ function printStockTakeReport() {
           </div>
         </div>
 
-        <div class="title">STOCK TAKE DISCREPANCY REPORT</div>
+        <div class="title">${isSst ? 'SPECIAL STOCK TAKE REPORT' : 'STOCK TAKE DISCREPANCY REPORT'}</div>
 
         <div class="report-wrap">
           <table>
