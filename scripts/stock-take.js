@@ -1522,6 +1522,18 @@ printBtn?.addEventListener('click', printStockTakeReport);
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
+
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const isSst = params.get('sst') === '1' || params.get('sst') === 'true';
+    if (isSst) {
+      document.title = 'Special Stock Take';
+      const titleEl = document.getElementById('page-title');
+      if (titleEl) titleEl.textContent = 'Special Stock Take';
+    }
+  } catch {
+  }
+
   refreshStockTakeTolerance();
   refreshStockTakeDiffLimit();
   logoutBtn?.addEventListener('click', handleLogout);
