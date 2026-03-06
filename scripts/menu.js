@@ -27,6 +27,34 @@ function isAdmin(user) {
   return name === 'admin' && id === '1234';
 }
 
+const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
+
+function getSstFeatureEnabled() {
+  try {
+    const raw = localStorage.getItem(SST_FEATURE_ENABLED_KEY);
+    if (raw === null) return true;
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return raw === 'true';
+  } catch {
+    return true;
+  }
+}
+
+function applySstVisibility() {
+  const sstBtn = document.getElementById('sst-btn');
+  if (!sstBtn) return;
+
+  const enabled = getSstFeatureEnabled();
+  if (enabled) {
+    sstBtn.classList.remove('hidden');
+    sstBtn.style.display = 'block';
+  } else {
+    sstBtn.classList.add('hidden');
+    sstBtn.style.display = 'none';
+  }
+}
+
 function parseJsonArray(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -147,6 +175,8 @@ window.addEventListener('DOMContentLoaded', () => {
       adminBtn.style.display = 'none';
     }
   }
+
+  applySstVisibility();
 
   populateDashboard();
 });

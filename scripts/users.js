@@ -3,6 +3,7 @@
 const USER_ACCOUNTS_KEY = 'user_accounts';
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
+const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
 const USERS_BACKUP_KEYS = [
   'weight_records',
@@ -56,6 +57,31 @@ function isAdmin(user) {
 
 function redirectToLogin() {
   window.location.href = 'login.html?return=users.html';
+}
+
+function getSstFeatureEnabled() {
+  try {
+    const raw = localStorage.getItem(SST_FEATURE_ENABLED_KEY);
+    if (raw === null) return true;
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return raw === 'true';
+  } catch {
+    return true;
+  }
+}
+
+function setSstFeatureEnabled(enabled) {
+  try {
+    localStorage.setItem(SST_FEATURE_ENABLED_KEY, enabled ? '1' : '0');
+  } catch {
+  }
+}
+
+function updateSstToggleBtn(btn) {
+  if (!btn) return;
+  const enabled = getSstFeatureEnabled();
+  btn.textContent = enabled ? 'SST: Enabled' : 'SST: Disabled';
 }
 
 function loadUsers() {
@@ -237,6 +263,28 @@ function usersHandleRestoreFile(file) {
   reader.readAsText(file);
 }
 
+function initSstToggleUI(currentUser) {
+  const btn = document.getElementById('sst-toggle-btn');
+  if (!btn) return;
+
+  if (!isAdmin(currentUser)) {
+    btn.classList.add('hidden');
+    btn.style.display = 'none';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  btn.style.display = 'inline-block';
+  updateSstToggleBtn(btn);
+
+  btn.addEventListener('click', () => {
+    const next = !getSstFeatureEnabled();
+    setSstFeatureEnabled(next);
+    updateSstToggleBtn(btn);
+    showStatus(`SST is now ${next ? 'enabled' : 'disabled'}.`, false);
+  });
+}
+
 function renderUsers() {
   const tbody = document.getElementById('users-body');
   const countEl = document.getElementById('user-count');
@@ -338,6 +386,8 @@ window.addEventListener('DOMContentLoaded', () => {
     redirectToLogin();
     return;
   }
+
+  initSstToggleUI(me);
 
   const globalToleranceEl = document.getElementById('global-stocktake-tolerance');
   const globalDiffLimitEl = document.getElementById('global-stocktake-diff-limit');
