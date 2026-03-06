@@ -462,6 +462,14 @@ function executeStockTakeUpdates() {
       confirmModal.classList.add('hidden');
     }
 
+    let stockTakeMode = 'ST';
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const isSst = params.get('sst') === '1' || params.get('sst') === 'true';
+      stockTakeMode = isSst ? 'SST' : 'ST';
+    } catch {
+    }
+
     if (typeof stockTakeDiffLimitGrams === 'number') {
       const overLimit = stockItems.some(item => (
         typeof item?.actualWeight === 'number'
@@ -550,6 +558,7 @@ function executeStockTakeUpdates() {
 
       historyEntries.push({
         timestamp: new Date().toISOString(),
+        mode: stockTakeMode,
         labelId,
         itemName: rec.itemName || '--',
         itemId: rec.itemId || '--',

@@ -190,6 +190,7 @@ function setHeaderForStockTake() {
   if (!headerRow) return;
   headerRow.innerHTML = `
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mode</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
     <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty Before</th>
@@ -202,7 +203,7 @@ function setHeaderForStockTake() {
 }
 
 const movementSortKeys = ['timestamp', 'type', 'labelId', 'itemName', 'quantity', 'weight', 'unit', 'responsibleUser'];
-const stockTakeSortKeysAdmin = ['timestamp', 'labelId', 'itemName', 'quantityBefore', 'weightBefore', 'quantityAfter', 'weightAfter', 'diff', 'responsibleUser'];
+const stockTakeSortKeysAdmin = ['timestamp', 'mode', 'labelId', 'itemName', 'quantityBefore', 'weightBefore', 'quantityAfter', 'weightAfter', 'diff', 'responsibleUser'];
 
 function getCurrentSortKeys() {
   return currentView === 'stocktake' ? stockTakeSortKeysAdmin : movementSortKeys;
@@ -324,6 +325,7 @@ function render(records) {
     for (const r of sortedRecords) {
       const tr = document.createElement('tr');
       const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '--';
+      const modeText = r.mode ? String(r.mode) : '--';
       const qtyBeforeText = typeof r.quantityBefore === 'number' && !Number.isNaN(r.quantityBefore)
         ? formatNumberAdmin(r.quantityBefore, 0)
         : '--';
@@ -364,6 +366,7 @@ function render(records) {
 
       tr.innerHTML = `
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
+        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${modeText}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.labelId || '--'}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${r.itemName || '--'}</td>
         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${qtyBeforeText}</td>
@@ -379,7 +382,7 @@ function render(records) {
     const totalTr = document.createElement('tr');
     totalTr.className = 'bg-gray-50';
     totalTr.innerHTML = `
-      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="3">Total</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-700" colspan="4">Total</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalQtyBefore, 0)}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalWeightBefore, 2)} g</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${formatNumberAdmin(totalQtyAfter, 0)}</td>
@@ -464,6 +467,7 @@ function applyFilter() {
           r.quantity,
           r.responsibleUser,
           r.type,
+          r.mode,
         ].map(f => String(f || '').toLowerCase());
 
         // every term must match at least one field
@@ -488,13 +492,14 @@ function exportCsv() {
   let headers;
   let rows;
   if (currentView === 'stocktake') {
-    headers = ['Date', 'Label ID', 'Item Name', 'Qty Before', 'Weight Before', 'Qty After', 'Weight After', 'Difference', 'Responsible'];
+    headers = ['Date', 'Mode', 'Label ID', 'Item Name', 'Qty Before', 'Weight Before', 'Qty After', 'Weight After', 'Difference', 'Responsible'];
     rows = records.map(r => {
       const diff = (typeof r.weightBefore === 'number' && typeof r.weightAfter === 'number')
         ? (r.weightAfter - r.weightBefore)
         : null;
       return [
         r.timestamp ? new Date(r.timestamp).toISOString() : '',
+        r.mode || '',
         r.labelId || '',
         r.itemName || '',
         typeof r.quantityBefore === 'number' ? r.quantityBefore.toFixed(0) : '',
