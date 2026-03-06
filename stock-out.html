@@ -78,6 +78,38 @@
                 <div id="status-message" class="status-message"></div>
             </div>
         </div>
+
+        <!-- Recent Records -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-2xl font-semibold">Recent Records</h2>
+                <a href="./stock-out-records.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                    View All
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Label ID</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item Name</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Item ID</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Lot No</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Mfg Lot</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Quantity</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Responsible</th>
+                            <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-stock-out-body" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="9" class="py-6 text-center text-gray-500">No records loaded yet...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script src="./scripts/sw-register.js" defer></script>

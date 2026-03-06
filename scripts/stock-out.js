@@ -16,6 +16,7 @@ const infoStatus = document.getElementById('info-status');
 const saveOutBtn = document.getElementById('save-out-btn');
 const statusMessage = document.getElementById('status-message');
 const logoutBtn = document.getElementById('logout-btn');
+const recentStockOutBody = document.getElementById('recent-stock-out-body');
 
 // --- Utils ---
 function showStatus(message, isError = false) {
@@ -131,6 +132,45 @@ function readLocal(name) {
 function writeLocal(name, value) {
   const pruned = pruneRecords(value);
   localStorage.setItem(name, JSON.stringify(pruned));
+}
+
+function renderRecentStockOutRecords() {
+  if (!recentStockOutBody) return;
+  const outs = readLocal('stock_out_records');
+  if (!Array.isArray(outs) || outs.length === 0) {
+    recentStockOutBody.innerHTML = `
+      <tr>
+        <td colspan="9" class="py-6 text-center text-gray-500">No records found.</td>
+      </tr>`;
+    return;
+  }
+
+  const sorted = outs.slice().sort((a, b) => {
+    const ta = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const tb = b?.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return tb - ta;
+  });
+
+  const recent = sorted.slice(0, 5);
+  recentStockOutBody.innerHTML = '';
+
+  for (const record of recent) {
+    const row = document.createElement('tr');
+    const date = record?.timestamp ? new Date(record.timestamp).toLocaleString() : '--';
+    const status = (record?.status || '').toUpperCase() || 'OUT';
+    row.innerHTML = `
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${date}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.labelId || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.itemName || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.itemId || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.lotNo || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.manufacturingLot || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.quantity || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${record?.responsibleUser || '--'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm font-semibold text-blue-700">${status}</td>
+    `;
+    recentStockOutBody.appendChild(row);
+  }
 }
 
 function updateInfo(scanned) {
@@ -272,6 +312,8 @@ saveOutBtn.addEventListener('click', () => {
   });
   writeLocal('stock_out_records', outs);
 
+  renderRecentStockOutRecords();
+
   showStatus('Package marked as out of stock.', false);
   infoStatus.textContent = 'Out of Stock';
   saveOutBtn.disabled = true;
@@ -284,6 +326,7 @@ saveOutBtn.addEventListener('click', () => {
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
   logoutBtn?.addEventListener('click', handleLogout);
+  renderRecentStockOutRecords();
   qrInput.focus();
 });
 
