@@ -1875,6 +1875,14 @@ function printStockTakeReport() {
           .meta-row { display: flex; gap: 8px; align-items: baseline; }
           .meta-label { min-width: 90px; font-weight: 700; }
           .meta-line { flex: 1; border-bottom: 1px solid #111827; height: 12px; }
+          .sst-meta { display: flex; flex-direction: column; gap: 14px; font-size: 10pt; flex: 1; }
+          .sst-row { display: flex; gap: 10px; align-items: baseline; }
+          .sst-label { width: 70px; font-weight: 700; }
+          .sst-line { flex: 1; border-bottom: 1px solid #111827; height: 12px; }
+          .sst-event-text { flex: 1; }
+          .sst-sign-table { border-collapse: collapse; width: 360px; table-layout: fixed; }
+          .sst-sign-table th { background: #ffffff; border: 1px solid #111827; padding: 6px 8px; font-size: 9pt; }
+          .sst-sign-table td { border: 1px solid #111827; height: 70px; }
           .report-wrap { margin-top: 10px; }
           th { background: #fde68a; border: 1px solid #111827; padding: 4px 6px; font-size: 8.5pt; text-align: center; vertical-align: middle; }
           .cell { border: 1px solid #111827; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
@@ -1904,13 +1912,32 @@ function printStockTakeReport() {
           </div>
         </div>
         <div class="header-wrap">
-          <div class="meta-grid">
-            ${isSst
-              ? `
-                <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
-                <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
-              `
-              : `
+          ${isSst
+            ? `
+              <div class="sst-meta">
+                <div class="sst-row"><div class="sst-label">Date :</div><div class="sst-line"></div></div>
+                <div class="sst-row"><div class="sst-label">Product :</div><div class="sst-line"></div></div>
+                <div class="sst-row"><div class="sst-label">Event :</div><div class="sst-event-text">Long Holiday (&gt;3Days) / Power Supply Off (&gt;10Hours)</div></div>
+              </div>
+              <table class="sst-sign-table">
+                <thead>
+                  <tr>
+                    <th>Issued by<br/>(Normal user)</th>
+                    <th>Checked by<br/>(Supervisor)</th>
+                    <th>Confirmed by<br/>(Manager)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            `
+            : `
+              <div class="meta-grid">
                 <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
                 <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
                 <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
@@ -1918,38 +1945,38 @@ function printStockTakeReport() {
                   <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
                   <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
                 </div>
-              `
-            }
-          </div>
+              </div>
 
-          <div class="loa-wrap">
-            <div class="loa-box">
-              <div class="loa-title">OMB LIMIT OF AUTHORITY (LOA)</div>
-              <table class="loa-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50%;">APPROVED BY</th>
-                    <th style="width: 50%;">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Dept Mgr/Snr Mgr/Div Mgr</td>
-                    <td>&lt;0.1 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;2.98 k RM</td>
-                  </tr>
-                  <tr>
-                    <td>Managing Director</td>
-                    <td>&lt;1.0 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;29.80 k RM</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+              <div class="loa-wrap">
+                <div class="loa-box">
+                  <div class="loa-title">OMB LIMIT OF AUTHORITY (LOA)</div>
+                  <table class="loa-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 50%;">APPROVED BY</th>
+                        <th style="width: 50%;">AMOUNT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Dept Mgr/Snr Mgr/Div Mgr</td>
+                        <td>&lt;0.1 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;2.98 k RM</td>
+                      </tr>
+                      <tr>
+                        <td>Managing Director</td>
+                        <td>&lt;1.0 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;29.80 k RM</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-            <div class="issued-box">
-              <div class="issued-title">Issued by</div>
-              <div class="issued-body"></div>
-            </div>
-          </div>
+                <div class="issued-box">
+                  <div class="issued-title">Issued by</div>
+                  <div class="issued-body"></div>
+                </div>
+              </div>
+            `
+          }
         </div>
 
         <div class="title">${isSst ? 'SPECIAL STOCK TAKE REPORT' : 'STOCK TAKE DISCREPANCY REPORT'}</div>
