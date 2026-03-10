@@ -1797,12 +1797,14 @@ function printStockTakeReport() {
           const recordWeight = (typeof item.expectedWeight === 'number' && Number.isFinite(item.expectedWeight)) ? item.expectedWeight : null;
           const actualWeight = (typeof item.actualWeight === 'number' && Number.isFinite(item.actualWeight)) ? item.actualWeight : null;
 
+          const weightUnit = (item.unit || 'g').toString();
+
           const recordQtyText = recordQty !== null ? formatNumber(recordQty, 0) : '';
           const actualQtyText = actualQty !== null ? formatNumber(actualQty, 0) : '';
           const varianceQtyText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
 
-          const recordWeightText = recordWeight !== null ? formatNumber(recordWeight, 2) : '';
-          const actualWeightText = actualWeight !== null ? formatNumber(actualWeight, 2) : '';
+          const recordWeightText = recordWeight !== null ? `${formatNumber(recordWeight, 2)} ${weightUnit}` : '';
+          const actualWeightText = actualWeight !== null ? `${formatNumber(actualWeight, 2)} ${weightUnit}` : '';
 
           return `
             <tr>
