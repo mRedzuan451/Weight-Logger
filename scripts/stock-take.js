@@ -1828,17 +1828,17 @@ function printStockTakeReport() {
         'Remark',
       ]
       : [
-        'CONTROL NO.',
-        'ITEM NO',
-        'DESCRIPTION',
-        'SYSTEM QUANTITY',
-        'ACTUAL QUANTITY',
-        'VARIANCE QUANTITY',
-        'UNIT PRICE\n(RM)',
-        'SYSTEM AMOUNT\n(RM)',
-        'ACTUAL AMOUNT\n(RM)',
-        'VARIANCE AMOUNT\n(RM)',
-        'REMARK',
+        'Control No.',
+        'Item No.',
+        'Description',
+        'System Qty',
+        'Actual Qty',
+        'Variance Qty',
+        'Unit Price\n(RM)',
+        'System Amount\n(RM)',
+        'Actual Amount\n(RM)',
+        'Variance Amount\n(RM)',
+        'Remark',
         'Proposer',
         'Opinion\nprovider',
         'Approver',
@@ -1953,7 +1953,7 @@ function printStockTakeReport() {
           .sst-sign-table td { border: 1px solid #111827; height: 70px; }
           .report-wrap { margin-top: 10px; }
           th { background: #fde68a; border: 1px solid #111827; padding: 4px 6px; font-size: 8.5pt; text-align: center; vertical-align: middle; }
-          .cell { border: 1px solid #111827; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
+          .cell { border: 1px solid #111827; padding: 6px 6px; font-size: 9pt; vertical-align: top; line-height: 1.35; }
           .right { text-align: right; }
           .center { text-align: center; }
           .loa-wrap { display: flex; gap: 10px; align-items: flex-start; margin-left: auto; }
