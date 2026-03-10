@@ -56,6 +56,11 @@ function isAdmin(user) {
   return name === 'admin' && id === '1234';
 }
 
+function isSupervisor(user) {
+  if (!user) return false;
+  return user.role === 'supervisor';
+}
+
 function redirectToLogin() {
   window.location.href = 'login.html?return=users.html';
 }
@@ -355,7 +360,7 @@ function renderUsers() {
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700 font-mono">${user.username}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${user.displayName || '--'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">${user.employeeId || '--'}</td>
-      <td class="px-4 py-2 whitespace-nowrap text-sm ${user.role === 'admin' ? 'text-red-700 font-semibold' : 'text-gray-700'}">${user.role || 'user'}</td>
+      <td class="px-4 py-2 whitespace-nowrap text-sm ${user.role === 'admin' ? 'text-red-700 font-semibold' : (user.role === 'supervisor' ? 'text-amber-700 font-semibold' : 'text-gray-700')}">${user.role || 'user'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm ${active ? 'text-green-700' : 'text-gray-400'}">${active ? 'Active' : 'Inactive'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700 space-x-2">
         <button data-action="reset" data-username="${user.username}" class="text-blue-600 hover:text-blue-800 font-semibold">Reset PW</button>
@@ -506,7 +511,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const username = usernameEl.value.trim();
     const displayName = (displayEl?.value || '').trim();
     const employeeId = (employeeIdEl?.value || '').trim();
-    const role = roleEl.value === 'admin' ? 'admin' : 'user';
+    const role = roleEl.value === 'admin'
+      ? 'admin'
+      : (roleEl.value === 'supervisor' ? 'supervisor' : 'user');
     const password = pwdEl.value;
 
     if (!username || !password) {

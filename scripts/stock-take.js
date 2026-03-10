@@ -258,6 +258,12 @@ function isAdmin(user) {
   return name === 'admin' && id === '1234';
 }
 
+function canUpdateWeight(user) {
+  if (!user) return false;
+  if (isAdmin(user)) return true;
+  return user.role === 'supervisor';
+}
+
 function refreshStockTakeTolerance() {
   try {
     const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
@@ -348,9 +354,9 @@ function saveStockTakeHistoryArray(records) {
 function applyStockTakeUpdates() {
   try {
     const currentUser = getCurrentUser();
-    if (!isAdmin(currentUser)) {
-      alert('Only admin user can update weight.');
-      showStatus('Update cancelled: admin authorization required.', true);
+    if (!canUpdateWeight(currentUser)) {
+      alert('Only admin/supervisor user can update weight.');
+      showStatus('Update cancelled: authorization required.', true);
       refocusQrInputSoon();
       return;
     }
@@ -371,7 +377,7 @@ function applyStockTakeUpdates() {
       ));
       if (overLimit) {
         const currentUser = getCurrentUser();
-        if (!isAdmin(currentUser)) {
+        if (!canUpdateWeight(currentUser)) {
           try {
             if (DEBUG_QR_FOCUS) {
               console.log('[stock-take] applyStockTakeUpdates blocked (non-admin, over diff limit): before alert', {
@@ -383,7 +389,7 @@ function applyStockTakeUpdates() {
             }
           } catch {
           }
-          alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
+          alert('Some items exceed the allowable difference limit. Please ask your supervisor/admin to confirm and perform the stock take update.');
           showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
           try {
             ensureQrInputInteractive();
@@ -521,7 +527,7 @@ function executeStockTakeUpdates() {
       ));
       if (overLimit) {
         const currentUser = getCurrentUser();
-        if (!isAdmin(currentUser)) {
+        if (!canUpdateWeight(currentUser)) {
           alert('Some items exceed the allowable difference limit. Please ask your superior/admin to confirm and perform the stock take update.');
           showStatus('Update cancelled: authorization required (items exceed allowable difference limit).', true);
           try {
@@ -1602,7 +1608,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (applyBtn) {
       const currentUser = getCurrentUser();
-      const allowApply = isAdmin(currentUser);
+      const allowApply = canUpdateWeight(currentUser);
       if (!allowApply) {
         applyBtn.classList.add('hidden');
         applyBtn.style.display = 'none';
