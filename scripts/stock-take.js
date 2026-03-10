@@ -1927,6 +1927,40 @@ function printStockTakeReport() {
         `;
       }).join('');
 
+    const colgroupHtml = isSst
+      ? `
+        <colgroup>
+          <col style="width: 4%;" />
+          <col style="width: 12%;" />
+          <col style="width: 22%;" />
+          <col style="width: 10%;" />
+          <col style="width: 10%;" />
+          <col style="width: 8%;" />
+          <col style="width: 8%;" />
+          <col style="width: 8%;" />
+          <col style="width: 18%;" />
+        </colgroup>
+      `
+      : `
+        <colgroup>
+          <col style="width: 7%;" />
+          <col style="width: 7%;" />
+          <col style="width: 18%;" />
+          <col style="width: 6%;" />
+          <col style="width: 6%;" />
+          <col style="width: 6%;" />
+          <col style="width: 7%;" />
+          <col style="width: 8%;" />
+          <col style="width: 8%;" />
+          <col style="width: 8%;" />
+          <col style="width: 14%;" />
+          <col style="width: 5%;" />
+          <col style="width: 5%;" />
+          <col style="width: 5%;" />
+          <col style="width: 5%;" />
+        </colgroup>
+      `;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -1937,6 +1971,7 @@ function printStockTakeReport() {
           @page { size: A4 landscape; margin: 10mm; }
           body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111827; }
           table { width: 100%; border-collapse: collapse; }
+          .report-table { table-layout: fixed; }
           .title { font-size: 12pt; font-weight: 700; letter-spacing: 0.2px; margin: 12px 0 8px 0; }
           .header-wrap { display: flex; justify-content: flex-start; align-items: flex-start; gap: 12px; width: 100%; }
           .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 9pt; flex: 1; }
@@ -1953,7 +1988,7 @@ function printStockTakeReport() {
           .sst-sign-table td { border: 1px solid #111827; height: 70px; }
           .report-wrap { margin-top: 10px; }
           th { background: #fde68a; border: 1px solid #111827; padding: 4px 6px; font-size: 8.5pt; text-align: center; vertical-align: middle; }
-          .cell { border: 1px solid #111827; padding: 6px 6px; font-size: 9pt; vertical-align: top; line-height: 1.35; }
+          .cell { border: 1px solid #111827; padding: 12px 12px; font-size: 9pt; vertical-align: top; line-height: 1.35; }
           .right { text-align: right; }
           .center { text-align: center; }
           .loa-wrap { display: flex; gap: 10px; align-items: flex-start; margin-left: auto; }
@@ -2050,7 +2085,8 @@ function printStockTakeReport() {
         <div class="title">${isSst ? 'SPECIAL STOCK TAKE REPORT' : 'STOCK TAKE DISCREPANCY REPORT'}</div>
 
         <div class="report-wrap">
-          <table>
+          <table class="report-table">
+            ${colgroupHtml}
             <thead>
               <tr>
                 ${headers.map(h => `<th>${String(h).replace(/\n/g, '<br/>')}</th>`).join('')}
