@@ -314,6 +314,23 @@ function saveStockTakeHistoryArray(records) {
 
 function applyStockTakeUpdates() {
   try {
+    let isSst = false;
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      isSst = params.get('sst') === '1' || params.get('sst') === 'true';
+    } catch {
+    }
+
+    if (isSst) {
+      const currentUser = getCurrentUser();
+      if (!isAdmin(currentUser)) {
+        alert('Only admin user can update weight in SST mode.');
+        showStatus('Update cancelled: admin authorization required (SST mode).', true);
+        refocusQrInputSoon();
+        return;
+      }
+    }
+
     if (!stockItems.length) {
       showStatus('No in-stock items to update.', true);
       refocusQrInputSoon();
@@ -1556,6 +1573,20 @@ window.addEventListener('DOMContentLoaded', () => {
       } else {
         updateMicBtn.classList.remove('hidden');
         updateMicBtn.style.display = 'inline-block';
+      }
+    }
+
+    if (applyBtn) {
+      const currentUser = getCurrentUser();
+      const allowApply = !isSst || isAdmin(currentUser);
+      if (!allowApply) {
+        applyBtn.classList.add('hidden');
+        applyBtn.style.display = 'none';
+        applyBtn.disabled = true;
+      } else {
+        applyBtn.classList.remove('hidden');
+        applyBtn.style.display = 'inline-block';
+        applyBtn.disabled = false;
       }
     }
   } catch {
