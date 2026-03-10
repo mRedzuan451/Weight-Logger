@@ -1700,39 +1700,42 @@ function printStockTakeReport() {
     const micMap = getMicQuantitiesByItemName();
     const unitPriceMap = getMicUnitPricesByItemName();
 
-    // Group items by itemId (Item Number)
+    // For SST print: list per-label rows (not grouped).
+    // For ST print: keep grouped-by-item behavior.
     const groups = new Map();
-    for (const item of stockItems) {
-      const itemId = (item.itemId || '').toString() || '--';
-      if (!itemId) continue;
-      if (!groups.has(itemId)) {
-        groups.set(itemId, {
-          itemId,
-          itemName: item.itemName || '',
-          actualQty: 0,
-          micQty: null,
-          unitPrice: null,
-        });
-      }
-      const g = groups.get(itemId);
-      if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
-        g.actualQty += item.actualQty;
-      }
-      if (g.micQty === null) {
-        const nameKey = (item.itemName || '').toString().trim();
-        const rawMic = micMap[nameKey];
-        const mic = typeof rawMic === 'number' ? rawMic : parseFloat(rawMic);
-        if (Number.isFinite(mic)) {
-          g.micQty = mic;
+    if (!isSst) {
+      for (const item of stockItems) {
+        const itemId = (item.itemId || '').toString() || '--';
+        if (!itemId) continue;
+        if (!groups.has(itemId)) {
+          groups.set(itemId, {
+            itemId,
+            itemName: item.itemName || '',
+            actualQty: 0,
+            micQty: null,
+            unitPrice: null,
+          });
         }
-      }
+        const g = groups.get(itemId);
+        if (typeof item.actualQty === 'number' && !Number.isNaN(item.actualQty)) {
+          g.actualQty += item.actualQty;
+        }
+        if (g.micQty === null) {
+          const nameKey = (item.itemName || '').toString().trim();
+          const rawMic = micMap[nameKey];
+          const mic = typeof rawMic === 'number' ? rawMic : parseFloat(rawMic);
+          if (Number.isFinite(mic)) {
+            g.micQty = mic;
+          }
+        }
 
-      if (g.unitPrice === null) {
-        const nameKey = (item.itemName || '').toString().trim();
-        const rawPrice = unitPriceMap[nameKey];
-        const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice);
-        if (Number.isFinite(price)) {
-          g.unitPrice = price;
+        if (g.unitPrice === null) {
+          const nameKey = (item.itemName || '').toString().trim();
+          const rawPrice = unitPriceMap[nameKey];
+          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice);
+          if (Number.isFinite(price)) {
+            g.unitPrice = price;
+          }
         }
       }
     }
@@ -1749,15 +1752,13 @@ function printStockTakeReport() {
     const headers = isSst
       ? [
         'No',
-        'Item No',
+        'Label ID',
         'Description',
+        'Record Weight',
+        'Actual Weight',
         'Record Qty',
         'Actual Qty',
         'Variance',
-        'Unit Price (RM)',
-        'Record Amount (RM)',
-        'Actual Amount (RM)',
-        'Variance Amount (RM)',
         'Remark',
       ]
       : [
@@ -1778,32 +1779,68 @@ function printStockTakeReport() {
         'Report\nReceiver',
       ];
 
-    const rowsHtml = grouped.map((g, idx) => {
-      const micQty = (typeof g.micQty === 'number' && Number.isFinite(g.micQty)) ? g.micQty : null;
-      const actualQty = (typeof g.actualQty === 'number' && Number.isFinite(g.actualQty)) ? g.actualQty : null;
-      const varianceQty = (micQty !== null && actualQty !== null)
-        ? (isSst ? (actualQty - micQty) : (micQty - actualQty))
-        : null;
+    const rowsHtml = isSst
+      ? stockItems
+        .slice()
+        .sort((a, b) => {
+          const al = String(a?.labelId || '').toLowerCase();
+          const bl = String(b?.labelId || '').toLowerCase();
+          if (al < bl) return -1;
+          if (al > bl) return 1;
+          return 0;
+        })
+        .map((item, idx) => {
+          const recordQty = (typeof item.expectedQty === 'number' && Number.isFinite(item.expectedQty)) ? item.expectedQty : null;
+          const actualQty = (typeof item.actualQty === 'number' && Number.isFinite(item.actualQty)) ? item.actualQty : null;
+          const varianceQty = (recordQty !== null && actualQty !== null) ? (actualQty - recordQty) : null;
 
-      const unitPrice = (typeof g.unitPrice === 'number' && Number.isFinite(g.unitPrice)) ? g.unitPrice : null;
-      const systemAmount = (unitPrice !== null && micQty !== null) ? (unitPrice * micQty) : null;
-      const actualAmount = (unitPrice !== null && actualQty !== null) ? (unitPrice * actualQty) : null;
-      const varianceAmount = (unitPrice !== null && varianceQty !== null) ? (unitPrice * varianceQty) : null;
+          const recordWeight = (typeof item.expectedWeight === 'number' && Number.isFinite(item.expectedWeight)) ? item.expectedWeight : null;
+          const actualWeight = (typeof item.actualWeight === 'number' && Number.isFinite(item.actualWeight)) ? item.actualWeight : null;
 
-      const micText = micQty !== null ? formatNumber(micQty, 0) : '';
-      const actualText = actualQty !== null ? formatNumber(actualQty, 0) : '';
-      const varianceText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
+          const recordQtyText = recordQty !== null ? formatNumber(recordQty, 0) : '';
+          const actualQtyText = actualQty !== null ? formatNumber(actualQty, 0) : '';
+          const varianceQtyText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
 
-      const unitPriceText = unitPrice !== null ? formatNumber(unitPrice, 2) : '';
-      const systemAmountText = systemAmount !== null ? formatNumber(systemAmount, 2) : '';
-      const actualAmountText = actualAmount !== null ? formatNumber(actualAmount, 2) : '';
-      const varianceAmountText = varianceAmount !== null ? formatNumber(varianceAmount, 2) : '';
+          const recordWeightText = recordWeight !== null ? formatNumber(recordWeight, 2) : '';
+          const actualWeightText = actualWeight !== null ? formatNumber(actualWeight, 2) : '';
 
-      if (isSst) {
-        const noText = String(idx + 1);
+          return `
+            <tr>
+              <td class="cell center">${String(idx + 1)}</td>
+              <td class="cell">${item.labelId || ''}</td>
+              <td class="cell">${item.itemName || ''}</td>
+              <td class="cell right">${recordWeightText}</td>
+              <td class="cell right">${actualWeightText}</td>
+              <td class="cell right">${recordQtyText}</td>
+              <td class="cell right">${actualQtyText}</td>
+              <td class="cell right">${varianceQtyText}</td>
+              <td class="cell"></td>
+            </tr>
+          `;
+        })
+        .join('')
+      : grouped.map((g) => {
+        const micQty = (typeof g.micQty === 'number' && Number.isFinite(g.micQty)) ? g.micQty : null;
+        const actualQty = (typeof g.actualQty === 'number' && Number.isFinite(g.actualQty)) ? g.actualQty : null;
+        const varianceQty = (micQty !== null && actualQty !== null) ? (micQty - actualQty) : null;
+
+        const unitPrice = (typeof g.unitPrice === 'number' && Number.isFinite(g.unitPrice)) ? g.unitPrice : null;
+        const systemAmount = (unitPrice !== null && micQty !== null) ? (unitPrice * micQty) : null;
+        const actualAmount = (unitPrice !== null && actualQty !== null) ? (unitPrice * actualQty) : null;
+        const varianceAmount = (unitPrice !== null && varianceQty !== null) ? (unitPrice * varianceQty) : null;
+
+        const micText = micQty !== null ? formatNumber(micQty, 0) : '';
+        const actualText = actualQty !== null ? formatNumber(actualQty, 0) : '';
+        const varianceText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
+
+        const unitPriceText = unitPrice !== null ? formatNumber(unitPrice, 2) : '';
+        const systemAmountText = systemAmount !== null ? formatNumber(systemAmount, 2) : '';
+        const actualAmountText = actualAmount !== null ? formatNumber(actualAmount, 2) : '';
+        const varianceAmountText = varianceAmount !== null ? formatNumber(varianceAmount, 2) : '';
+
         return `
           <tr>
-            <td class="cell center">${noText}</td>
+            <td class="cell center"></td>
             <td class="cell">${g.itemId}</td>
             <td class="cell">${g.itemName}</td>
             <td class="cell right">${micText}</td>
@@ -1814,30 +1851,13 @@ function printStockTakeReport() {
             <td class="cell right">${actualAmountText}</td>
             <td class="cell right">${varianceAmountText}</td>
             <td class="cell"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
           </tr>
         `;
-      }
-
-      return `
-        <tr>
-          <td class="cell center"></td>
-          <td class="cell">${g.itemId}</td>
-          <td class="cell">${g.itemName}</td>
-          <td class="cell right">${micText}</td>
-          <td class="cell right">${actualText}</td>
-          <td class="cell right">${varianceText}</td>
-          <td class="cell right">${unitPriceText}</td>
-          <td class="cell right">${systemAmountText}</td>
-          <td class="cell right">${actualAmountText}</td>
-          <td class="cell right">${varianceAmountText}</td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-        </tr>
-      `;
-    }).join('');
+      }).join('');
 
     const html = `
       <!DOCTYPE html>
@@ -1886,11 +1906,11 @@ function printStockTakeReport() {
         <div class="header-wrap">
           <div class="meta-grid">
             <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
-            <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
+            ${isSst ? '' : '<div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>'}
             <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
             <div>
               <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
-              <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
+              ${isSst ? '' : '<div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>'}
             </div>
           </div>
 
