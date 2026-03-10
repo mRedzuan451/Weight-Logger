@@ -4,6 +4,7 @@ const USER_ACCOUNTS_KEY = 'user_accounts';
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
 const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
+const STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY = 'feature_stock_take_manual_weight_enabled';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
 const USERS_BACKUP_KEYS = [
   'weight_records',
@@ -76,6 +77,31 @@ function setSstFeatureEnabled(enabled) {
     localStorage.setItem(SST_FEATURE_ENABLED_KEY, enabled ? '1' : '0');
   } catch {
   }
+}
+
+function getManualWeightEntryEnabled() {
+  try {
+    const raw = localStorage.getItem(STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY);
+    if (raw === null) return false;
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return raw === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function setManualWeightEntryEnabled(enabled) {
+  try {
+    localStorage.setItem(STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY, enabled ? '1' : '0');
+  } catch {
+  }
+}
+
+function updateManualWeightToggleBtn(btn) {
+  if (!btn) return;
+  const enabled = getManualWeightEntryEnabled();
+  btn.textContent = enabled ? 'Manual Weight: Enabled' : 'Manual Weight: Disabled';
 }
 
 function updateSstToggleBtn(btn) {
@@ -285,6 +311,28 @@ function initSstToggleUI(currentUser) {
   });
 }
 
+function initManualWeightToggleUI(currentUser) {
+  const btn = document.getElementById('manual-weight-toggle-btn');
+  if (!btn) return;
+
+  if (!isAdmin(currentUser)) {
+    btn.classList.add('hidden');
+    btn.style.display = 'none';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  btn.style.display = 'inline-block';
+  updateManualWeightToggleBtn(btn);
+
+  btn.addEventListener('click', () => {
+    const next = !getManualWeightEntryEnabled();
+    setManualWeightEntryEnabled(next);
+    updateManualWeightToggleBtn(btn);
+    showStatus(`Manual weight entry is now ${next ? 'enabled' : 'disabled'}.`, false);
+  });
+}
+
 function renderUsers() {
   const tbody = document.getElementById('users-body');
   const countEl = document.getElementById('user-count');
@@ -388,6 +436,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   initSstToggleUI(me);
+  initManualWeightToggleUI(me);
 
   const globalToleranceEl = document.getElementById('global-stocktake-tolerance');
   const globalDiffLimitEl = document.getElementById('global-stocktake-diff-limit');

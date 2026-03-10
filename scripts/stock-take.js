@@ -47,6 +47,7 @@ const DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS = 5;
 let stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
+const STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY = 'feature_stock_take_manual_weight_enabled';
 let stockTakeDiffLimitGrams = null;
 let lastDiffLimitPromptKey = '';
 let diffLimitPromptArmed = false;
@@ -69,6 +70,7 @@ const stockTakeManualLabelId = document.getElementById('stocktake-manual-label-i
 const stockTakeManualSubmitBtn = document.getElementById('stocktake-manual-submit');
 const stockTakeManualWeight = document.getElementById('stocktake-manual-weight');
 const stockTakeManualWeightApplyBtn = document.getElementById('stocktake-manual-weight-apply');
+const stockTakeManualWeightBox = document.getElementById('stocktake-manual-weight-box');
 const infoLabelId = document.getElementById('info-label-id');
 const infoItemName = document.getElementById('info-item-name');
 const infoStatus = document.getElementById('info-status');
@@ -85,6 +87,37 @@ const printBtn = document.getElementById('stocktake-print-btn');
 const confirmModal = document.getElementById('confirm-modal');
 const confirmModalOkBtn = document.getElementById('confirm-modal-ok');
 const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel');
+
+function getManualWeightEntryEnabled() {
+  try {
+    const raw = localStorage.getItem(STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY);
+    if (raw === null) return false;
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return raw === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function applyManualWeightEntryVisibility() {
+  const enabled = getManualWeightEntryEnabled();
+  if (stockTakeManualWeightBox) {
+    if (enabled) {
+      stockTakeManualWeightBox.classList.remove('hidden');
+      stockTakeManualWeightBox.style.display = 'block';
+    } else {
+      stockTakeManualWeightBox.classList.add('hidden');
+      stockTakeManualWeightBox.style.display = 'none';
+    }
+  }
+  if (stockTakeManualWeight) {
+    stockTakeManualWeight.disabled = !enabled;
+  }
+  if (stockTakeManualWeightApplyBtn) {
+    stockTakeManualWeightApplyBtn.disabled = !enabled;
+  }
+}
 
 let stockItems = [];
 let stockTakeSort = { key: 'labelId', direction: 'asc' };
@@ -1591,6 +1624,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   } catch {
   }
+
+  applyManualWeightEntryVisibility();
 
   refreshStockTakeTolerance();
   refreshStockTakeDiffLimit();
