@@ -1905,13 +1905,21 @@ function printStockTakeReport() {
         </div>
         <div class="header-wrap">
           <div class="meta-grid">
-            <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
-            ${isSst ? '' : '<div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>'}
-            <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
-            <div>
-              <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
-              ${isSst ? '' : '<div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>'}
-            </div>
+            ${isSst
+              ? `
+                <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
+                <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
+              `
+              : `
+                <div class="meta-row"><div class="meta-label">Date:</div><div class="meta-line"></div></div>
+                <div class="meta-row"><div class="meta-label">WareHouse:</div><div class="meta-line"></div></div>
+                <div class="meta-row"><div class="meta-label">Product:</div><div class="meta-line"></div></div>
+                <div>
+                  <div class="meta-row"><div class="meta-label">Stock Take</div><div></div></div>
+                  <div class="meta-row"><div class="meta-label">Control No:</div><div class="meta-line"></div></div>
+                </div>
+              `
+            }
           </div>
 
           <div class="loa-wrap">
