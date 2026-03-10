@@ -347,21 +347,12 @@ function saveStockTakeHistoryArray(records) {
 
 function applyStockTakeUpdates() {
   try {
-    let isSst = false;
-    try {
-      const params = new URLSearchParams(window.location.search || '');
-      isSst = params.get('sst') === '1' || params.get('sst') === 'true';
-    } catch {
-    }
-
-    if (isSst) {
-      const currentUser = getCurrentUser();
-      if (!isAdmin(currentUser)) {
-        alert('Only admin user can update weight in SST mode.');
-        showStatus('Update cancelled: admin authorization required (SST mode).', true);
-        refocusQrInputSoon();
-        return;
-      }
+    const currentUser = getCurrentUser();
+    if (!isAdmin(currentUser)) {
+      alert('Only admin user can update weight.');
+      showStatus('Update cancelled: admin authorization required.', true);
+      refocusQrInputSoon();
+      return;
     }
 
     if (!stockItems.length) {
@@ -1611,7 +1602,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (applyBtn) {
       const currentUser = getCurrentUser();
-      const allowApply = !isSst || isAdmin(currentUser);
+      const allowApply = isAdmin(currentUser);
       if (!allowApply) {
         applyBtn.classList.add('hidden');
         applyBtn.style.display = 'none';
