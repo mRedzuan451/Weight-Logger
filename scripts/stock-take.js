@@ -53,6 +53,7 @@ let lastDiffLimitPromptKey = '';
 let diffLimitPromptArmed = false;
 const STOCK_TAKE_STATE_KEY = 'stock_take_state';
 const STOCK_TAKE_HISTORY_KEY = 'stock_take_history';
+const LAST_STOCK_TAKE_PRINT_TS_KEY = 'last_stock_take_print_ts';
 const MIC_QUANTITIES_KEY = 'mic_quantities_by_item_name';
 const MIC_UNIT_PRICES_KEY = 'mic_unit_prices_by_item_name';
 
@@ -120,6 +121,25 @@ function applyManualWeightEntryVisibility() {
 }
 
 let stockItems = [];
+
+function hasAnyStockTakeData() {
+  if (!Array.isArray(stockItems) || !stockItems.length) return false;
+  return stockItems.some(item => (
+    typeof item?.actualWeight === 'number'
+    && Number.isFinite(item.actualWeight)
+  ));
+}
+
+function handlePrintReport() {
+  if (!hasAnyStockTakeData()) {
+    alert('No stock take data recorded yet. Please scan at least one label and record actual weight/qty before printing the report.');
+    showStatus('Print cancelled: no stock take data recorded yet.', true);
+    refocusQrInputSoon();
+    return;
+  }
+  printStockTakeReport();
+}
+
 let stockTakeSort = { key: 'labelId', direction: 'asc' };
 let stockTakeHeaderCells = [];
 const stockTakeSortKeys = ['labelId', 'itemName', 'expectedQty', 'expectedWeight', 'actualQty', 'actualWeight', 'diff'];
@@ -1579,7 +1599,7 @@ disconnectScaleBtn.addEventListener('click', () => {
 exportBtn?.addEventListener('click', exportStockTakeCsv);
 applyBtn?.addEventListener('click', applyStockTakeUpdates);
 updateMicBtn?.addEventListener('click', openMicUpdateWindow);
-printBtn?.addEventListener('click', printStockTakeReport);
+printBtn?.addEventListener('click', handlePrintReport);
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!ensureLoggedIn()) return;
@@ -1731,21 +1751,10 @@ function escapeCsv(value) {
 
 function printStockTakeReport() {
   try {
-    const hasStockTakeData = Array.isArray(stockItems) && stockItems.some(item => (
-      item
-      && typeof item.actualWeight === 'number'
-      && Number.isFinite(item.actualWeight)
-    ));
-
-    if (!hasStockTakeData) {
-      alert('No stock take data found. Please scan at least one label and record the actual weight before printing the report.');
-      showStatus('Print cancelled: no stock take data to print.', true);
+    if (!hasAnyStockTakeData()) {
+      alert('No stock take data recorded yet. Please scan at least one label and record actual weight/qty before printing the report.');
+      showStatus('Print cancelled: no stock take data recorded yet.', true);
       refocusQrInputSoon();
-      return;
-    }
-
-    if (!stockItems.length) {
-      showStatus('No in-stock items to print.', true);
       return;
     }
 
@@ -2116,6 +2125,10 @@ function printStockTakeReport() {
     preview.document.open();
     preview.document.write(html);
     preview.document.close();
+    try {
+      localStorage.setItem(LAST_STOCK_TAKE_PRINT_TS_KEY, new Date().toISOString());
+    } catch {
+    }
     try {
       preview.focus();
     } catch {

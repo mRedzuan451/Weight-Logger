@@ -78,6 +78,17 @@ function getLatestTimestamp(records) {
   return latest;
 }
 
+function getLastPrintedStockTakeTimestamp() {
+  try {
+    const raw = localStorage.getItem('last_stock_take_print_ts');
+    if (!raw) return null;
+    const t = new Date(raw).getTime();
+    return Number.isNaN(t) ? null : t;
+  } catch {
+    return null;
+  }
+}
+
 function computeInStockLabelCount(ins, outs) {
   if (!Array.isArray(ins) && !Array.isArray(outs)) return 0;
 
@@ -139,7 +150,9 @@ function populateDashboard() {
   const inStockCount = computeInStockLabelCount(ins, outs);
   inStockEl.textContent = String(inStockCount);
 
-  const latestTs = getLatestTimestamp(stockTakeHistory);
+  const latestPrintedTs = getLastPrintedStockTakeTimestamp();
+  const latestHistoryTs = getLatestTimestamp(stockTakeHistory);
+  const latestTs = latestPrintedTs || latestHistoryTs;
   if (!latestTs) {
     lastStockTakeEl.textContent = 'No stock-take yet';
   } else {
