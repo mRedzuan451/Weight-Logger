@@ -1731,6 +1731,19 @@ function escapeCsv(value) {
 
 function printStockTakeReport() {
   try {
+    const hasStockTakeData = Array.isArray(stockItems) && stockItems.some(item => (
+      item
+      && typeof item.actualWeight === 'number'
+      && Number.isFinite(item.actualWeight)
+    ));
+
+    if (!hasStockTakeData) {
+      alert('No stock take data found. Please scan at least one label and record the actual weight before printing the report.');
+      showStatus('Print cancelled: no stock take data to print.', true);
+      refocusQrInputSoon();
+      return;
+    }
+
     if (!stockItems.length) {
       showStatus('No in-stock items to print.', true);
       return;
@@ -1819,9 +1832,10 @@ function printStockTakeReport() {
         'Description',
         'Record Weight',
         'Actual Weight',
+        'Variance Weight',
         'Record Qty',
         'Actual Qty',
-        'Variance',
+        'Variance Qty',
         'Remark',
       ]
       : [
@@ -1862,12 +1876,15 @@ function printStockTakeReport() {
 
           const weightUnit = (item.unit || 'g').toString();
 
+          const varianceWeight = (recordWeight !== null && actualWeight !== null) ? (actualWeight - recordWeight) : null;
+
           const recordQtyText = recordQty !== null ? formatNumber(recordQty, 0) : '';
           const actualQtyText = actualQty !== null ? formatNumber(actualQty, 0) : '';
           const varianceQtyText = varianceQty !== null ? formatNumber(varianceQty, 0) : '';
 
           const recordWeightText = recordWeight !== null ? `${formatNumber(recordWeight, 2)} ${weightUnit}` : '';
           const actualWeightText = actualWeight !== null ? `${formatNumber(actualWeight, 2)} ${weightUnit}` : '';
+          const varianceWeightText = varianceWeight !== null ? `${formatNumber(varianceWeight, 2)} ${weightUnit}` : '';
 
           return `
             <tr>
@@ -1876,6 +1893,7 @@ function printStockTakeReport() {
               <td class="cell">${item.itemName || ''}</td>
               <td class="cell right">${recordWeightText}</td>
               <td class="cell right">${actualWeightText}</td>
+              <td class="cell right">${varianceWeightText}</td>
               <td class="cell right">${recordQtyText}</td>
               <td class="cell right">${actualQtyText}</td>
               <td class="cell right">${varianceQtyText}</td>
@@ -1924,39 +1942,20 @@ function printStockTakeReport() {
         `;
       }).join('');
 
-    const colgroupHtml = isSst
-      ? `
-        <colgroup>
-          <col style="width: 4%;" />
-          <col style="width: 12%;" />
-          <col style="width: 22%;" />
-          <col style="width: 10%;" />
-          <col style="width: 10%;" />
-          <col style="width: 8%;" />
-          <col style="width: 8%;" />
-          <col style="width: 8%;" />
-          <col style="width: 18%;" />
-        </colgroup>
-      `
-      : `
-        <colgroup>
-          <col style="width: 7%;" />
-          <col style="width: 7%;" />
-          <col style="width: 18%;" />
-          <col style="width: 6%;" />
-          <col style="width: 6%;" />
-          <col style="width: 6%;" />
-          <col style="width: 7%;" />
-          <col style="width: 8%;" />
-          <col style="width: 8%;" />
-          <col style="width: 8%;" />
-          <col style="width: 14%;" />
-          <col style="width: 5%;" />
-          <col style="width: 5%;" />
-          <col style="width: 5%;" />
-          <col style="width: 5%;" />
-        </colgroup>
-      `;
+    const generatedAt = (() => {
+      try {
+        return new Date().toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+      } catch {
+        return new Date().toISOString();
+      }
+    })();
 
     const html = `
       <!DOCTYPE html>
@@ -1968,7 +1967,6 @@ function printStockTakeReport() {
           @page { size: A4 landscape; margin: 10mm; }
           body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111827; }
           table { width: 100%; border-collapse: collapse; }
-          .report-table { table-layout: fixed; }
           .title { font-size: 12pt; font-weight: 700; letter-spacing: 0.2px; margin: 12px 0 8px 0; }
           .header-wrap { display: flex; justify-content: flex-start; align-items: flex-start; gap: 12px; width: 100%; }
           .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 9pt; flex: 1; }
@@ -1983,6 +1981,8 @@ function printStockTakeReport() {
           .sst-sign-table { border-collapse: collapse; width: 360px; table-layout: fixed; }
           .sst-sign-table th { background: #ffffff; border: 1px solid #111827; padding: 6px 8px; font-size: 9pt; }
           .sst-sign-table td { border: 1px solid #111827; height: 70px; }
+          .note { margin-top: 6px; margin-bottom: 6px; font-size: 9pt; }
+          .footer { margin-top: 10px; font-size: 8.5pt; color: #374151; display: flex; justify-content: flex-end; }
           .report-wrap { margin-top: 10px; }
           th { background: #fde68a; border: 1px solid #111827; padding: 4px 6px; font-size: 8.5pt; text-align: center; vertical-align: middle; }
           .cell { border: 1px solid #111827; padding: 12px 12px; font-size: 9pt; vertical-align: top; line-height: 1.35; }
@@ -2082,8 +2082,18 @@ function printStockTakeReport() {
         <div class="title">${isSst ? 'SPECIAL STOCK TAKE REPORT' : 'STOCK TAKE DISCREPANCY REPORT'}</div>
 
         <div class="report-wrap">
-          <table class="report-table">
-            ${colgroupHtml}
+          ${isSst ? `<div class="note"><b>Tolerance Limit:</b> ${(() => {
+            try {
+              const raw = localStorage.getItem(GLOBAL_STOCK_TAKE_TOLERANCE_KEY);
+              if (raw === null || raw === '') return formatNumber(DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS, 2);
+              const parsed = Number(raw);
+              if (!Number.isFinite(parsed) || parsed < 0) return formatNumber(DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS, 2);
+              return formatNumber(parsed, 2);
+            } catch {
+              return formatNumber(DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS, 2);
+            }
+          })()} g (set by user)</div>` : ''}
+          <table>
             <thead>
               <tr>
                 ${headers.map(h => `<th>${String(h).replace(/\n/g, '<br/>')}</th>`).join('')}
@@ -2093,6 +2103,7 @@ function printStockTakeReport() {
               ${rowsHtml}
             </tbody>
           </table>
+          <div class="footer">Generated: ${generatedAt}</div>
         </div>
       </body>
       </html>
