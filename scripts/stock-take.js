@@ -1966,6 +1966,38 @@ function printStockTakeReport() {
       }
     })();
 
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"]/g, (ch) => {
+      switch (ch) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        default: return ch;
+      }
+    });
+
+    const loa = (() => {
+      const defaults = {
+        approved1: 'Dept Mgr/Snr Mgr/Div Mgr',
+        amount1: '<0.1 Mil Yen      <2.98 k RM',
+        approved2: 'Managing Director',
+        amount2: '<1.0 Mil Yen      <29.80 k RM',
+      };
+      try {
+        const raw = localStorage.getItem('st_print_loa_settings');
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || typeof parsed !== 'object') return defaults;
+        return {
+          approved1: typeof parsed.approved1 === 'string' && parsed.approved1.trim() ? parsed.approved1.trim() : defaults.approved1,
+          amount1: typeof parsed.amount1 === 'string' && parsed.amount1.trim() ? parsed.amount1.trim() : defaults.amount1,
+          approved2: typeof parsed.approved2 === 'string' && parsed.approved2.trim() ? parsed.approved2.trim() : defaults.approved2,
+          amount2: typeof parsed.amount2 === 'string' && parsed.amount2.trim() ? parsed.amount2.trim() : defaults.amount2,
+        };
+      } catch {
+        return defaults;
+      }
+    })();
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -2068,12 +2100,12 @@ function printStockTakeReport() {
                     </thead>
                     <tbody>
                       <tr>
-                        <td>Dept Mgr/Snr Mgr/Div Mgr</td>
-                        <td>&lt;0.1 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;2.98 k RM</td>
+                        <td>${escapeHtml(loa.approved1)}</td>
+                        <td>${escapeHtml(loa.amount1).replace(/\s{2,}/g, (m) => '&nbsp;'.repeat(m.length))}</td>
                       </tr>
                       <tr>
-                        <td>Managing Director</td>
-                        <td>&lt;1.0 Mil Yen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;29.80 k RM</td>
+                        <td>${escapeHtml(loa.approved2)}</td>
+                        <td>${escapeHtml(loa.amount2).replace(/\s{2,}/g, (m) => '&nbsp;'.repeat(m.length))}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -2125,6 +2157,47 @@ function printStockTakeReport() {
     preview.document.open();
     preview.document.write(html);
     preview.document.close();
+    try {
+      const currentUserForHistory = getCurrentUser();
+      const responsibleUser = currentUserForHistory
+        ? (currentUserForHistory.displayName || currentUserForHistory.name || currentUserForHistory.username || '')
+        : '';
+
+      const ts = new Date().toISOString();
+      const historyEntries = stockItems
+        .filter(item => typeof item?.actualWeight === 'number' && Number.isFinite(item.actualWeight))
+        .map((item) => {
+          const qtyBefore = (typeof item?.expectedQty === 'number' && Number.isFinite(item.expectedQty)) ? item.expectedQty : null;
+          const qtyAfter = (typeof item?.actualQty === 'number' && Number.isFinite(item.actualQty)) ? item.actualQty : null;
+          const weightBefore = (typeof item?.expectedWeight === 'number' && Number.isFinite(item.expectedWeight)) ? item.expectedWeight : null;
+          const weightAfter = item.actualWeight;
+          return {
+            timestamp: ts,
+            mode: isSst ? 'SST' : 'ST',
+            labelId: item?.labelId || '--',
+            itemName: item?.itemName || '--',
+            itemId: item?.itemId || '--',
+            lotNo: item?.lotNo || '--',
+            manufacturingLot: item?.manufacturingLot || '--',
+            quantityBefore: qtyBefore,
+            quantityAfter: qtyAfter,
+            weightBefore,
+            unitBefore: 'g',
+            weightAfter,
+            unitAfter: 'g',
+            responsibleUser,
+          };
+        });
+
+      if (historyEntries.length) {
+        let history = getStockTakeHistoryArray();
+        if (!Array.isArray(history)) history = [];
+        history.push(...historyEntries);
+        saveStockTakeHistoryArray(history);
+      }
+    } catch (err) {
+      console.error('Error saving print stock take history:', err);
+    }
     try {
       localStorage.setItem(LAST_STOCK_TAKE_PRINT_TS_KEY, new Date().toISOString());
     } catch {

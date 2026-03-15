@@ -5,6 +5,7 @@ const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
 const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
 const STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY = 'feature_stock_take_manual_weight_enabled';
+const ST_PRINT_LOA_SETTINGS_KEY = 'st_print_loa_settings';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
 const USERS_BACKUP_KEYS = [
   'weight_records',
@@ -113,6 +114,31 @@ function updateSstToggleBtn(btn) {
   if (!btn) return;
   const enabled = getSstFeatureEnabled();
   btn.textContent = enabled ? 'SST: Enabled' : 'SST: Disabled';
+}
+
+function loadStPrintLoaSettings() {
+  try {
+    const raw = localStorage.getItem(ST_PRINT_LOA_SETTINGS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      approved1: typeof parsed.approved1 === 'string' ? parsed.approved1 : null,
+      amount1: typeof parsed.amount1 === 'string' ? parsed.amount1 : null,
+      approved2: typeof parsed.approved2 === 'string' ? parsed.approved2 : null,
+      amount2: typeof parsed.amount2 === 'string' ? parsed.amount2 : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveStPrintLoaSettings(settings) {
+  try {
+    localStorage.setItem(ST_PRINT_LOA_SETTINGS_KEY, JSON.stringify(settings || {}));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function loadUsers() {
@@ -471,6 +497,35 @@ window.addEventListener('DOMContentLoaded', () => {
     const okDiffLimit = saveGlobalStockTakeDiffLimit(diffParsed === null ? null : diffParsed);
     const ok = okTolerance && okDiffLimit;
     showStatus(ok ? 'Stock take settings saved.' : 'Failed to save stock take settings.', !ok);
+    updateStorageUsageDisplay();
+  });
+
+  const stLoaApproved1El = document.getElementById('st-loa-approved-1');
+  const stLoaAmount1El = document.getElementById('st-loa-amount-1');
+  const stLoaApproved2El = document.getElementById('st-loa-approved-2');
+  const stLoaAmount2El = document.getElementById('st-loa-amount-2');
+  const stLoaSaveBtn = document.getElementById('st-loa-save');
+  const stLoaSaved = loadStPrintLoaSettings();
+  if (stLoaApproved1El && 'value' in stLoaApproved1El) {
+    stLoaApproved1El.value = (stLoaSaved && typeof stLoaSaved.approved1 === 'string') ? stLoaSaved.approved1 : 'Dept Mgr/Snr Mgr/Div Mgr';
+  }
+  if (stLoaAmount1El && 'value' in stLoaAmount1El) {
+    stLoaAmount1El.value = (stLoaSaved && typeof stLoaSaved.amount1 === 'string') ? stLoaSaved.amount1 : '<0.1 Mil Yen      <2.98 k RM';
+  }
+  if (stLoaApproved2El && 'value' in stLoaApproved2El) {
+    stLoaApproved2El.value = (stLoaSaved && typeof stLoaSaved.approved2 === 'string') ? stLoaSaved.approved2 : 'Managing Director';
+  }
+  if (stLoaAmount2El && 'value' in stLoaAmount2El) {
+    stLoaAmount2El.value = (stLoaSaved && typeof stLoaSaved.amount2 === 'string') ? stLoaSaved.amount2 : '<1.0 Mil Yen      <29.80 k RM';
+  }
+
+  stLoaSaveBtn?.addEventListener('click', () => {
+    const approved1 = (stLoaApproved1El && 'value' in stLoaApproved1El) ? String(stLoaApproved1El.value || '').trim() : '';
+    const amount1 = (stLoaAmount1El && 'value' in stLoaAmount1El) ? String(stLoaAmount1El.value || '').trim() : '';
+    const approved2 = (stLoaApproved2El && 'value' in stLoaApproved2El) ? String(stLoaApproved2El.value || '').trim() : '';
+    const amount2 = (stLoaAmount2El && 'value' in stLoaAmount2El) ? String(stLoaAmount2El.value || '').trim() : '';
+    const ok = saveStPrintLoaSettings({ approved1, amount1, approved2, amount2 });
+    showStatus(ok ? 'LOA table saved.' : 'Failed to save LOA table.', !ok);
     updateStorageUsageDisplay();
   });
 
