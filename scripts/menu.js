@@ -84,42 +84,38 @@ function getLastPrintedStockTakeTimestamp() {
   }
 }
 
+function buildLatestRecordMap(records) {
+  const latestByLabel = new Map();
+  if (!Array.isArray(records)) return latestByLabel;
+
+  for (const record of records) {
+    if (!record || !record.labelId) continue;
+    const timestamp = record.timestamp ? new Date(record.timestamp).getTime() : 0;
+    const existing = latestByLabel.get(record.labelId);
+    const existingTimestamp = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
+    if (!existing || timestamp > existingTimestamp) {
+      latestByLabel.set(record.labelId, record);
+    }
+  }
+
+  return latestByLabel;
+}
+
+function isLabelInStock(inRec, outRec) {
+  const inTime = inRec && inRec.timestamp ? new Date(inRec.timestamp).getTime() : 0;
+  const outTime = outRec && outRec.timestamp ? new Date(outRec.timestamp).getTime() : -1;
+  return !outRec || Number.isNaN(outTime) || outTime <= inTime;
+}
+
 function computeInStockLabelCount(ins, outs) {
   if (!Array.isArray(ins) && !Array.isArray(outs)) return 0;
 
-  const latestInByLabel = new Map();
-  if (Array.isArray(ins)) {
-    for (const r of ins) {
-      if (!r || !r.labelId) continue;
-      const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
-      const existing = latestInByLabel.get(r.labelId);
-      const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
-      if (!existing || t > existingT) {
-        latestInByLabel.set(r.labelId, r);
-      }
-    }
-  }
-
-  const latestOutByLabel = new Map();
-  if (Array.isArray(outs)) {
-    for (const r of outs) {
-      if (!r || !r.labelId) continue;
-      const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
-      const existing = latestOutByLabel.get(r.labelId);
-      const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
-      if (!existing || t > existingT) {
-        latestOutByLabel.set(r.labelId, r);
-      }
-    }
-  }
+  const latestInByLabel = buildLatestRecordMap(ins);
+  const latestOutByLabel = buildLatestRecordMap(outs);
 
   let count = 0;
   latestInByLabel.forEach((inRec, labelId) => {
-    const inTime = inRec.timestamp ? new Date(inRec.timestamp).getTime() : 0;
-    const outRec = latestOutByLabel.get(labelId);
-    const outTime = outRec && outRec.timestamp ? new Date(outRec.timestamp).getTime() : -1;
-    const status = outRec && !Number.isNaN(outTime) && outTime > inTime ? 'OUT' : 'IN';
-    if (status === 'IN') {
+    if (isLabelInStock(inRec, latestOutByLabel.get(labelId))) {
       count += 1;
     }
   });

@@ -533,7 +533,6 @@ function executeStockTakeUpdates() {
     refocusQrInputSoon();
     return;
   }
-  let didApply = false;
   stockTakeApplyInProgress = true;
   if (applyBtn) {
     applyBtn.disabled = true;
@@ -689,7 +688,6 @@ function executeStockTakeUpdates() {
     }
 
     showStatus('Stock take updates applied. List reloaded with new weights.', false);
-    didApply = true;
     resetInfo();
     loadInStockItems();
   } catch (err) {

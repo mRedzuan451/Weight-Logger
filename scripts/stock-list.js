@@ -30,6 +30,45 @@ function getCurrentUser() {
   }
 }
 
+function compareValues(a, b, direction) {
+  if (a == null && b == null) return 0;
+  if (a == null) return direction === 'asc' ? -1 : 1;
+  if (b == null) return direction === 'asc' ? 1 : -1;
+
+  if (typeof a === 'number' && typeof b === 'number') {
+    return direction === 'asc' ? a - b : b - a;
+  }
+
+  const as = String(a).toLowerCase();
+  const bs = String(b).toLowerCase();
+  if (as < bs) return direction === 'asc' ? -1 : 1;
+  if (as > bs) return direction === 'asc' ? 1 : -1;
+  return 0;
+}
+
+function buildLatestRecordMap(records) {
+  const latestByLabel = new Map();
+  if (!Array.isArray(records)) return latestByLabel;
+
+  for (const record of records) {
+    if (!record || !record.labelId) continue;
+    const timestamp = record.timestamp ? new Date(record.timestamp).getTime() : 0;
+    const existing = latestByLabel.get(record.labelId);
+    const existingTimestamp = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
+    if (!existing || timestamp > existingTimestamp) {
+      latestByLabel.set(record.labelId, record);
+    }
+  }
+
+  return latestByLabel;
+}
+
+function isLabelInStock(inRec, outRec) {
+  const inTime = inRec && inRec.timestamp ? new Date(inRec.timestamp).getTime() : 0;
+  const outTime = outRec && outRec.timestamp ? new Date(outRec.timestamp).getTime() : -1;
+  return outTime <= inTime;
+}
+
 function getFilteredAndSortedRows() {
   const rawQuery = (searchInput?.value || '').trim().toLowerCase();
 
@@ -54,24 +93,7 @@ function getFilteredAndSortedRows() {
   }
 
   const { key, direction } = currentSort;
-  rows.sort((a, b) => {
-    const av = a[key];
-    const bv = b[key];
-
-    if (av == null && bv == null) return 0;
-    if (av == null) return direction === 'asc' ? -1 : 1;
-    if (bv == null) return direction === 'asc' ? 1 : -1;
-
-    if (typeof av === 'number' && typeof bv === 'number') {
-      return direction === 'asc' ? av - bv : bv - av;
-    }
-
-    const as = String(av).toLowerCase();
-    const bs = String(bv).toLowerCase();
-    if (as < bs) return direction === 'asc' ? -1 : 1;
-    if (as > bs) return direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  rows.sort((a, b) => compareValues(a[key], b[key], direction));
 
   return rows;
 }
@@ -248,39 +270,13 @@ function loadStockList() {
     const ins = insRaw ? JSON.parse(insRaw) : [];
     const outs = outsRaw ? JSON.parse(outsRaw) : [];
 
-    const latestInByLabel = new Map();
-    if (Array.isArray(ins)) {
-      for (const r of ins) {
-        if (!r || !r.labelId) continue;
-        const existing = latestInByLabel.get(r.labelId);
-        const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
-        const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
-        if (!existing || t > existingT) {
-          latestInByLabel.set(r.labelId, r);
-        }
-      }
-    }
-
-    const latestOutByLabel = new Map();
-    if (Array.isArray(outs)) {
-      for (const r of outs) {
-        if (!r || !r.labelId) continue;
-        const existing = latestOutByLabel.get(r.labelId);
-        const t = r.timestamp ? new Date(r.timestamp).getTime() : 0;
-        const existingT = existing && existing.timestamp ? new Date(existing.timestamp).getTime() : -1;
-        if (!existing || t > existingT) {
-          latestOutByLabel.set(r.labelId, r);
-        }
-      }
-    }
+    const latestInByLabel = buildLatestRecordMap(ins);
+    const latestOutByLabel = buildLatestRecordMap(outs);
 
     const rows = [];
     latestInByLabel.forEach((inRec, labelId) => {
       const outRec = latestOutByLabel.get(labelId);
-      const inTime = inRec.timestamp ? new Date(inRec.timestamp).getTime() : 0;
-      const outTime = outRec && outRec.timestamp ? new Date(outRec.timestamp).getTime() : -1;
-      const status = outTime > inTime ? 'OUT' : 'IN';
-      if (status !== 'IN') return; // only current stock
+      if (!isLabelInStock(inRec, outRec)) return; // only current stock
 
       const measured = typeof inRec.measuredWeight === 'number'
         ? inRec.measuredWeight
