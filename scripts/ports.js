@@ -1,3 +1,5 @@
+const { runAsync, setButtonLoading, toast } = window.WeightLoggerUtils;
+
 async function listPorts() {
     const body = document.getElementById('ports-body');
     if (!('serial' in navigator)) {
@@ -64,10 +66,10 @@ async function listPorts() {
                     }
 
                     localStorage.setItem('preferred_scale_ids', JSON.stringify(combined));
-                    alert('Preferred scale port saved. You can now close this window and click "Connect to Digital Scale" in the main app.');
+                    toast('Preferred scale port saved.', { type: 'success', duration: 5000 });
                 } catch (err) {
                     console.error('Error saving preferred port:', err);
-                    alert('Failed to save preferred port. See console for details.');
+                    toast('Failed to save preferred port. See console for details.', { type: 'error', duration: 5000 });
                 }
             });
         });
@@ -84,7 +86,7 @@ const PREFERRED_SCALE_IDS = [
 
 async function requestNewPort() {
     if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported in this environment.');
+        toast('Web Serial API is not supported in this environment.', { type: 'error', duration: 5000 });
         return;
     }
 
@@ -107,7 +109,7 @@ async function requestNewPort() {
         console.error('Error requesting port:', error);
         const name = error && typeof error.name === 'string' ? error.name : 'Error';
         const message = error && typeof error.message === 'string' ? error.message : '';
-        alert(`Failed to request a new port (${name})${message ? `: ${message}` : ''}. See console for details.`);
+        toast(`Failed to request a new port (${name})${message ? `: ${message}` : ''}. See console for details.`, { type: 'error', duration: 5000 });
     }
 }
 
@@ -124,12 +126,31 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     refreshBtn?.addEventListener('click', () => {
-        listPorts();
+        runAsync(() => listPorts(), {
+            loadingMessage: 'Refreshing port list...',
+            button: refreshBtn,
+            buttonLoadingText: 'Refreshing...',
+            errorToast: false,
+        }).catch(() => {
+            toast('Failed to refresh port list.', { type: 'error', duration: 5000 });
+        });
     });
 
     requestBtn?.addEventListener('click', () => {
-        requestNewPort();
+        runAsync(() => requestNewPort(), {
+            loadingMessage: 'Requesting port access...',
+            button: requestBtn,
+            buttonLoadingText: 'Requesting...',
+            errorToast: false,
+        }).catch(() => {
+            toast('Failed to request port access.', { type: 'error', duration: 5000 });
+        });
     });
 
-    listPorts();
+    runAsync(() => listPorts(), {
+        loadingMessage: 'Loading available ports...',
+        errorToast: false,
+    }).catch(() => {
+        toast('Failed to load available ports.', { type: 'error', duration: 5000 });
+    });
 });

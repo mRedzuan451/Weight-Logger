@@ -1,4 +1,4 @@
-const { ensureLoggedIn, formatNumber, getCurrentUser, redirectToLogin, safeParseArray } = window.WeightLoggerUtils;
+const { ensureLoggedIn, formatNumber, getCurrentUser, redirectToLogin, runAsync, safeParseArray, setButtonLoading, toast } = window.WeightLoggerUtils;
 
 // --- Global State ---
 let scalePort = null;
@@ -276,13 +276,14 @@ function pruneOldRecords(records) {
 
 function showStatusMessage(message, isError = false) {
     statusMessage.textContent = message;
-    statusMessage.className = 'status-message'; // Reset classes
+    statusMessage.className = 'status-message';
     if (isError) {
         statusMessage.classList.add('status-error');
     } else {
         statusMessage.classList.add('status-success');
     }
     statusMessage.style.display = 'block';
+    toast(message, { type: isError ? 'error' : 'success' });
     setTimeout(() => {
         statusMessage.style.display = 'none';
     }, 3000);
@@ -492,7 +493,7 @@ async function connectPreferredScale({ auto = false } = {}) {
     }
 
     scaleConnectInProgress = true;
-    connectScaleBtn.disabled = true;
+    setButtonLoading(connectScaleBtn, true, 'Connecting...');
     try {
         const grantedPorts = await navigator.serial.getPorts();
         let port = grantedPorts.find(isPreferredScalePort);
@@ -534,12 +535,12 @@ async function connectPreferredScale({ auto = false } = {}) {
         }
     } finally {
         scaleConnectInProgress = false;
-        connectScaleBtn.disabled = false;
+        setButtonLoading(connectScaleBtn, false);
     }
 }
 
 connectScaleBtn.addEventListener('click', () => {
-    (async () => {
+    runAsync(async () => {
         try {
             if ('serial' in navigator) {
                 const ports = await navigator.serial.getPorts();
@@ -557,12 +558,25 @@ connectScaleBtn.addEventListener('click', () => {
             }
         } catch {
         }
-        connectPreferredScale({ auto: false });
-    })();
+        await connectPreferredScale({ auto: false });
+    }, {
+        loadingMessage: 'Connecting to scale...',
+        button: connectScaleBtn,
+        buttonLoadingText: 'Connecting...',
+        errorToast: false,
+    }).catch(() => {
+    });
 });
 
 disconnectScaleBtn.addEventListener('click', () => {
-    disconnectScale({ quiet: false });
+    runAsync(() => disconnectScale({ quiet: false }), {
+        loadingMessage: 'Disconnecting scale...',
+        button: disconnectScaleBtn,
+        buttonLoadingText: 'Disconnecting...',
+        errorToast: false,
+    }).catch(() => {
+        showStatusMessage('Failed to disconnect scale.', true);
+    });
 });
 
 async function readFromScale() {
@@ -937,49 +951,51 @@ saveRecordBtn.addEventListener('click', async () => {
     }
 
     stockInSaveInProgress = true;
-    saveRecordBtn.disabled = true;
-    saveRecordBtn.textContent = 'Saving...';
 
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            showStatusMessage('Please login before saving.', true);
-            const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'index.html');
-            window.location.href = `login.html?return=${ret}`;
-            return;
-        }
-        const { _partialBaseWeightGrams, _partialBaseQty, ...cleanScanned } = currentScannedData || {};
+        await runAsync(async () => {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                showStatusMessage('Please login before saving.', true);
+                redirectToLogin('index.html');
+                return;
+            }
+            const { _partialBaseWeightGrams, _partialBaseQty, ...cleanScanned } = currentScannedData || {};
 
-        const record = {
-            ...cleanScanned,
-            measuredWeight: lockedWeight,
-            unit: unitSelect.value,
-            timestamp: new Date().toISOString(),
-            responsibleUser: currentUser.displayName || currentUser.name || currentUser.username || ''
-        };
+            const record = {
+                ...cleanScanned,
+                measuredWeight: lockedWeight,
+                unit: unitSelect.value,
+                timestamp: new Date().toISOString(),
+                responsibleUser: currentUser.displayName || currentUser.name || currentUser.username || ''
+            };
 
-        let records = getWeightRecordsArray();
-        if (!Array.isArray(records)) {
-            records = [];
-        }
+            let records = getWeightRecordsArray();
+            if (!Array.isArray(records)) {
+                records = [];
+            }
 
-        records.push(record);
-        records = pruneOldRecords(records);
+            records.push(record);
+            records = pruneOldRecords(records);
 
-        if (!saveWeightRecordsArray(records)) {
-            throw new Error('Unable to save record to local storage. Storage may be full or unavailable.');
-        }
+            if (!saveWeightRecordsArray(records)) {
+                throw new Error('Unable to save record to local storage. Storage may be full or unavailable.');
+            }
 
-        showStatusMessage('Record saved successfully!', false);
-        resetForm();
-        loadRecords();
+            showStatusMessage('Record saved successfully!', false);
+            resetForm();
+            loadRecords();
+        }, {
+            loadingMessage: 'Saving stock-in record...',
+            button: saveRecordBtn,
+            buttonLoadingText: 'Saving...',
+            errorToast: false,
+        });
     } catch (err) {
         console.error('Error saving record:', err);
         showStatusMessage(err?.message || 'Error saving record. Check console.', true);
     } finally {
         stockInSaveInProgress = false;
-        saveRecordBtn.disabled = false;
-        saveRecordBtn.textContent = 'Save Record to Database';
         checkSaveButtonState();
     }
 });

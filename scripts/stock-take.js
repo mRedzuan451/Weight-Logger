@@ -1,6 +1,6 @@
 'use strict';
 
-const { ensureLoggedIn, formatNumber, getCurrentUser, isAdmin, redirectToLogin, safeParseArray } = window.WeightLoggerUtils;
+const { ensureLoggedIn, formatNumber, getCurrentUser, isAdmin, redirectToLogin, runAsync, safeParseArray, setButtonLoading, toast } = window.WeightLoggerUtils;
 
 const SCALE_SERIAL_OPTIONS = {
   baudRate: 2400,
@@ -1092,6 +1092,7 @@ function showStatus(message, isError = false) {
   statusBox.textContent = message;
   statusBox.className = 'px-4 py-3 rounded-lg text-sm font-semibold ' +
     (isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
+  toast(message, { type: isError ? 'error' : 'success' });
 }
 
 function isPreferredScalePort(port) {
@@ -1168,6 +1169,7 @@ async function connectPreferredScale() {
     showStatus('Web Serial API not supported in this browser.', true);
     return;
   }
+  setButtonLoading(connectScaleBtn, true, 'Connecting...');
   try {
     if (scalePort?.readable && !scaleConnectInProgress) {
       showStatus('Scale already connected.', false);
@@ -1193,6 +1195,8 @@ async function connectPreferredScale() {
       showStatus('Failed to connect to scale.', true);
     }
     refocusQrInputSoon();
+  } finally {
+    setButtonLoading(connectScaleBtn, false);
   }
 }
 
@@ -1558,8 +1562,7 @@ connectScaleBtn.addEventListener('click', () => {
     showStatus('Scale connection already in progress.', true);
     return;
   }
-  (async () => {
-    connectScaleBtn.disabled = true;
+  runAsync(async () => {
     try {
       if ('serial' in navigator) {
         const ports = await navigator.serial.getPorts();
@@ -1576,17 +1579,26 @@ connectScaleBtn.addEventListener('click', () => {
         }
       }
     } catch {
-    } finally {
-      if (!scaleConnectInProgress) {
-        connectScaleBtn.disabled = false;
-      }
     }
-    connectPreferredScale();
-  })();
+    await connectPreferredScale();
+  }, {
+    loadingMessage: 'Connecting to scale...',
+    button: connectScaleBtn,
+    buttonLoadingText: 'Connecting...',
+    errorToast: false,
+  }).catch(() => {
+  });
 });
 
 disconnectScaleBtn.addEventListener('click', () => {
-  disconnectScale({ quiet: false });
+  runAsync(() => disconnectScale({ quiet: false }), {
+    loadingMessage: 'Disconnecting scale...',
+    button: disconnectScaleBtn,
+    buttonLoadingText: 'Disconnecting...',
+    errorToast: false,
+  }).catch(() => {
+    showStatus('Failed to disconnect scale.', true);
+  });
 });
 
 exportBtn?.addEventListener('click', exportStockTakeCsv);

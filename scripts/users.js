@@ -1,6 +1,6 @@
 'use strict';
 
-const { getCurrentUser, isAdmin, redirectToLogin } = window.WeightLoggerUtils;
+const { getCurrentUser, isAdmin, redirectToLogin, runAsync, setButtonLoading, toast } = window.WeightLoggerUtils;
 
 const USER_ACCOUNTS_KEY = 'user_accounts';
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
@@ -174,6 +174,7 @@ function showStatus(message, isError = false) {
   }
   box.textContent = message;
   box.className = 'px-4 py-3 rounded-lg text-sm font-semibold ' + (isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
+  toast(message, { type: isError ? 'error' : 'success' });
 }
 
 function usersFormatBytes(bytes) {
@@ -589,6 +590,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const form = document.getElementById('user-form');
+  const formSubmitBtn = form?.querySelector('button[type="submit"]');
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const usernameEl = document.getElementById('user-username');
@@ -611,34 +613,44 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const users = loadUsers();
-    const existing = users.find(u => u && u.username === username);
-    if (existing) {
-      showStatus('A user with that username already exists.', true);
-      return;
-    }
+    try {
+      await runAsync(async () => {
+        const users = loadUsers();
+        const existing = users.find(u => u && u.username === username);
+        if (existing) {
+          showStatus('A user with that username already exists.', true);
+          return;
+        }
 
-    users.push({
-      username,
-      displayName: displayName || username,
-      employeeId: employeeId || username,
-      role,
-      active: true,
-      passwordHash: await hashPassword(username, password),
-    });
-    if (!saveUsers(users)) {
-      showStatus('Failed to create user. Storage may be full or unavailable.', true);
-      return;
-    }
-    renderUsers();
+        users.push({
+          username,
+          displayName: displayName || username,
+          employeeId: employeeId || username,
+          role,
+          active: true,
+          passwordHash: await hashPassword(username, password),
+        });
+        if (!saveUsers(users)) {
+          throw new Error('Failed to create user. Storage may be full or unavailable.');
+        }
+        renderUsers();
 
-    usernameEl.value = '';
-    if (displayEl) displayEl.value = '';
-    if (employeeIdEl) employeeIdEl.value = '';
-    pwdEl.value = '';
-    roleEl.value = 'user';
-    showStatus('User created.', false);
-    updateStorageUsageDisplay();
+        usernameEl.value = '';
+        if (displayEl) displayEl.value = '';
+        if (employeeIdEl) employeeIdEl.value = '';
+        pwdEl.value = '';
+        roleEl.value = 'user';
+        showStatus('User created.', false);
+        updateStorageUsageDisplay();
+      }, {
+        loadingMessage: 'Creating user...',
+        button: formSubmitBtn,
+        buttonLoadingText: 'Saving...',
+        errorToast: false,
+      });
+    } catch (error) {
+      showStatus(error?.message || 'Failed to create user.', true);
+    }
   });
 
   const tbody = document.getElementById('users-body');
@@ -650,8 +662,17 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!action || !username) return;
 
     if (action === 'reset') {
-      handleResetPassword(username).then(() => {
+      runAsync(async () => {
+        setButtonLoading(target, true, 'Resetting...');
+        await handleResetPassword(username);
         renderUsers();
+      }, {
+        loadingMessage: `Resetting password for ${username}...`,
+        errorToast: false,
+      }).catch((error) => {
+        showStatus(error?.message || 'Failed to reset password.', true);
+      }).finally(() => {
+        setButtonLoading(target, false);
       });
     } else if (action === 'toggle') {
       handleToggleActive(username);

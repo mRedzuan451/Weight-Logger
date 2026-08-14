@@ -1,5 +1,7 @@
 'use strict';
 
+const { runAsync, setButtonLoading, toast } = window.WeightLoggerUtils;
+
 const LOGIN_HISTORY_KEY = 'login_history';
 const USER_ACCOUNTS_KEY = 'user_accounts';
 const MAX_HISTORY_DAYS = 60;
@@ -39,8 +41,13 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
-  if (!Array.isArray(users)) return;
-  localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
+  if (!Array.isArray(users)) return false;
+  try {
+    localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getAuthApi() {
@@ -171,8 +178,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   const setupPasswordInput = document.getElementById('setup-password');
   const setupConfirmInput = document.getElementById('setup-password-confirm');
   const setupMessage = document.getElementById('setup-message');
+  const loginSubmitBtn = loginForm?.querySelector('button[type="submit"]');
+  const setupSubmitBtn = setupForm?.querySelector('button[type="submit"]');
 
-  const { users, bootstrapApplied } = await ensureBootstrapAdmin();
+  const { users, bootstrapApplied } = await runAsync(() => ensureBootstrapAdmin(), {
+    loadingMessage: 'Preparing sign-in...',
+    errorMessage: 'Failed to initialize login screen.',
+  });
   const needsSetup = !users.length;
   toggleSetupMode(needsSetup);
   if (bootstrapApplied) {
@@ -214,15 +226,30 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const passwordHash = await hashPassword(username, password);
-    saveUsers([{
-      username,
-      displayName: displayName || username,
-      employeeId: employeeId || username,
-      role: 'admin',
-      active: true,
-      passwordHash,
-    }]);
+    try {
+      await runAsync(async () => {
+        const passwordHash = await hashPassword(username, password);
+        if (!saveUsers([{
+          username,
+          displayName: displayName || username,
+          employeeId: employeeId || username,
+          role: 'admin',
+          active: true,
+          passwordHash,
+        }])) {
+          throw new Error('Failed to create administrator account.');
+        }
+      }, {
+        loadingMessage: 'Creating administrator account...',
+        button: setupSubmitBtn,
+        buttonLoadingText: 'Creating...',
+        successMessage: 'Administrator account created.',
+        errorMessage: 'Failed to create administrator account.',
+      });
+    } catch {
+      showMessage(setupMessage, 'Failed to create administrator account.', true);
+      return;
+    }
 
     setupForm.reset();
     toggleSetupMode(false);
@@ -248,36 +275,48 @@ window.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const currentUsers = loadUsers();
-    if (!currentUsers.length) {
-      toggleSetupMode(true);
-      showMessage(setupMessage, 'Create the first administrator account before signing in.', true);
-      return;
-    }
+    try {
+      await runAsync(async () => {
+        const currentUsers = loadUsers();
+        if (!currentUsers.length) {
+          toggleSetupMode(true);
+          showMessage(setupMessage, 'Create the first administrator account before signing in.', true);
+          return;
+        }
 
-    const user = currentUsers.find(u => u && u.username === username && u.active !== false);
-    if (!user) {
-      showMessage(error, 'Invalid username or password.', true);
-      usernameInput.classList.add('border-red-500', 'ring-red-300');
-      passwordInput.classList.add('border-red-500', 'ring-red-300');
-      return;
-    }
+        const user = currentUsers.find(u => u && u.username === username && u.active !== false);
+        if (!user) {
+          showMessage(error, 'Invalid username or password.', true);
+          usernameInput.classList.add('border-red-500', 'ring-red-300');
+          passwordInput.classList.add('border-red-500', 'ring-red-300');
+          return;
+        }
 
-    const expectedHash = user.passwordHash;
-    const verified = await verifyPassword(username, password, expectedHash);
-    if (!verified) {
-      showMessage(error, 'Invalid username or password.', true);
-      usernameInput.classList.add('border-red-500', 'ring-red-300');
-      passwordInput.classList.add('border-red-500', 'ring-red-300');
-      return;
-    }
+        const expectedHash = user.passwordHash;
+        const verified = await verifyPassword(username, password, expectedHash);
+        if (!verified) {
+          showMessage(error, 'Invalid username or password.', true);
+          usernameInput.classList.add('border-red-500', 'ring-red-300');
+          passwordInput.classList.add('border-red-500', 'ring-red-300');
+          return;
+        }
 
-    if (await isLegacyPasswordHash(expectedHash)) {
-      user.passwordHash = await hashPassword(username, password);
-      saveUsers(currentUsers);
-    }
+        if (await isLegacyPasswordHash(expectedHash)) {
+          user.passwordHash = await hashPassword(username, password);
+          saveUsers(currentUsers);
+        }
 
-    setCurrentUser({ username: user.username, displayName: user.displayName, employeeId: user.employeeId, role: user.role });
-    window.location.href = getReturnUrl();
+        setCurrentUser({ username: user.username, displayName: user.displayName, employeeId: user.employeeId, role: user.role });
+        toast('Signed in successfully.', { type: 'success' });
+        window.location.href = getReturnUrl();
+      }, {
+        loadingMessage: 'Signing in...',
+        button: loginSubmitBtn,
+        buttonLoadingText: 'Signing in...',
+        errorToast: false,
+      });
+    } catch {
+      showMessage(error, 'Failed to sign in.', true);
+    }
   });
 });
