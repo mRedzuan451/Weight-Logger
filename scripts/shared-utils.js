@@ -10,7 +10,7 @@ const WeightLoggerUtils = {
   _globalErrorHandlersInstalled: false,
 
   ensureUiShell() {
-    if (this._uiReady) return;
+    if (WeightLoggerUtils._uiReady) return;
     const body = document.body;
     if (!body) return;
 
@@ -31,33 +31,33 @@ const WeightLoggerUtils = {
     errorBanner.innerHTML = '<div class="flex items-start gap-3"><div class="mt-0.5 text-red-700 font-bold">!</div><div class="min-w-0 flex-1"><p class="text-sm font-semibold text-red-900">Unexpected error</p><p id="wl-error-banner-message" class="mt-1 text-sm text-red-800"></p></div><button id="wl-error-banner-dismiss" type="button" class="shrink-0 rounded-md bg-red-100 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-200">Dismiss</button></div>';
     body.appendChild(errorBanner);
 
-    this._overlayEl = overlay;
-    this._overlayMessageEl = overlay.querySelector('#wl-global-loading-message');
-    this._toastContainerEl = toastContainer;
-    this._errorBannerEl = errorBanner;
-    this._errorBannerMessageEl = errorBanner.querySelector('#wl-error-banner-message');
+    WeightLoggerUtils._overlayEl = overlay;
+    WeightLoggerUtils._overlayMessageEl = overlay.querySelector('#wl-global-loading-message');
+    WeightLoggerUtils._toastContainerEl = toastContainer;
+    WeightLoggerUtils._errorBannerEl = errorBanner;
+    WeightLoggerUtils._errorBannerMessageEl = errorBanner.querySelector('#wl-error-banner-message');
 
     const dismissBtn = errorBanner.querySelector('#wl-error-banner-dismiss');
-    dismissBtn?.addEventListener('click', () => this.hideErrorBanner());
+    dismissBtn?.addEventListener('click', () => WeightLoggerUtils.hideErrorBanner());
 
-    this._uiReady = true;
+    WeightLoggerUtils._uiReady = true;
   },
 
   installGlobalErrorHandlers() {
-    if (this._globalErrorHandlersInstalled) return;
-    this._globalErrorHandlersInstalled = true;
+    if (WeightLoggerUtils._globalErrorHandlersInstalled) return;
+    WeightLoggerUtils._globalErrorHandlersInstalled = true;
     window.addEventListener('error', (event) => {
       const message = event?.error?.message || event?.message || 'Unexpected application error.';
-      this.hideLoading();
-      this.showErrorBanner(message);
-      this.toast(message, { type: 'error', duration: 6000 });
+      WeightLoggerUtils.hideLoading();
+      WeightLoggerUtils.showErrorBanner(message);
+      WeightLoggerUtils.toast(message, { type: 'error', duration: 6000 });
     });
     window.addEventListener('unhandledrejection', (event) => {
       const reason = event?.reason;
       const message = reason?.message || (typeof reason === 'string' ? reason : 'Unexpected async error.');
-      this.hideLoading();
-      this.showErrorBanner(message);
-      this.toast(message, { type: 'error', duration: 6000 });
+      WeightLoggerUtils.hideLoading();
+      WeightLoggerUtils.showErrorBanner(message);
+      WeightLoggerUtils.toast(message, { type: 'error', duration: 6000 });
     });
   },
 
@@ -77,9 +77,9 @@ const WeightLoggerUtils = {
   },
 
   ensureLoggedIn(returnPage) {
-    const user = this.getCurrentUser();
+    const user = WeightLoggerUtils.getCurrentUser();
     if (!user || !(user.name || user.username)) {
-      this.redirectToLogin(returnPage);
+      WeightLoggerUtils.redirectToLogin(returnPage);
       return false;
     }
     return true;
@@ -108,17 +108,17 @@ const WeightLoggerUtils = {
   },
 
   showLoading(message = 'Loading...') {
-    this.ensureUiShell();
-    if (!this._overlayEl || !this._overlayMessageEl) return;
-    this._overlayMessageEl.textContent = message;
-    this._overlayEl.classList.remove('hidden');
-    this._overlayEl.classList.add('flex');
+    WeightLoggerUtils.ensureUiShell();
+    if (!WeightLoggerUtils._overlayEl || !WeightLoggerUtils._overlayMessageEl) return;
+    WeightLoggerUtils._overlayMessageEl.textContent = message;
+    WeightLoggerUtils._overlayEl.classList.remove('hidden');
+    WeightLoggerUtils._overlayEl.classList.add('flex');
   },
 
   hideLoading() {
-    if (!this._overlayEl) return;
-    this._overlayEl.classList.add('hidden');
-    this._overlayEl.classList.remove('flex');
+    if (!WeightLoggerUtils._overlayEl) return;
+    WeightLoggerUtils._overlayEl.classList.add('hidden');
+    WeightLoggerUtils._overlayEl.classList.remove('flex');
   },
 
   setButtonLoading(button, isLoading, loadingText) {
@@ -142,8 +142,8 @@ const WeightLoggerUtils = {
 
   toast(message, { type = 'info', duration = 3000 } = {}) {
     if (!message) return;
-    this.ensureUiShell();
-    if (!this._toastContainerEl) return;
+    WeightLoggerUtils.ensureUiShell();
+    if (!WeightLoggerUtils._toastContainerEl) return;
     const toast = document.createElement('div');
     const styles = {
       success: 'border-green-200 bg-green-50 text-green-900',
@@ -153,7 +153,7 @@ const WeightLoggerUtils = {
     };
     toast.className = `pointer-events-auto overflow-hidden rounded-xl border px-4 py-3 shadow-lg transition-all ${styles[type] || styles.info}`;
     toast.innerHTML = `<p class="text-sm font-semibold">${message}</p>`;
-    this._toastContainerEl.appendChild(toast);
+    WeightLoggerUtils._toastContainerEl.appendChild(toast);
     window.setTimeout(() => {
       toast.classList.add('opacity-0', 'translate-x-2');
       window.setTimeout(() => toast.remove(), 180);
@@ -161,15 +161,15 @@ const WeightLoggerUtils = {
   },
 
   showErrorBanner(message) {
-    this.ensureUiShell();
-    if (!this._errorBannerEl || !this._errorBannerMessageEl) return;
-    this._errorBannerMessageEl.textContent = message || 'Unexpected application error.';
-    this._errorBannerEl.classList.remove('hidden');
+    WeightLoggerUtils.ensureUiShell();
+    if (!WeightLoggerUtils._errorBannerEl || !WeightLoggerUtils._errorBannerMessageEl) return;
+    WeightLoggerUtils._errorBannerMessageEl.textContent = message || 'Unexpected application error.';
+    WeightLoggerUtils._errorBannerEl.classList.remove('hidden');
   },
 
   hideErrorBanner() {
-    if (!this._errorBannerEl) return;
-    this._errorBannerEl.classList.add('hidden');
+    if (!WeightLoggerUtils._errorBannerEl) return;
+    WeightLoggerUtils._errorBannerEl.classList.add('hidden');
   },
 
   async runAsync(task, options = {}) {
@@ -183,23 +183,23 @@ const WeightLoggerUtils = {
       buttonLoadingText,
     } = options;
 
-    if (button) this.setButtonLoading(button, true, buttonLoadingText);
-    if (loadingMessage) this.showLoading(loadingMessage);
+    if (button) WeightLoggerUtils.setButtonLoading(button, true, buttonLoadingText);
+    if (loadingMessage) WeightLoggerUtils.showLoading(loadingMessage);
     try {
       const result = await task();
       if (successMessage && successToast) {
-        this.toast(successMessage, { type: 'success' });
+        WeightLoggerUtils.toast(successMessage, { type: 'success' });
       }
       return result;
     } catch (error) {
       const message = error?.message || errorMessage || 'Unexpected error.';
       if (errorToast) {
-        this.toast(errorMessage || message, { type: 'error', duration: 5000 });
+        WeightLoggerUtils.toast(errorMessage || message, { type: 'error', duration: 5000 });
       }
       throw error;
     } finally {
-      if (loadingMessage) this.hideLoading();
-      if (button) this.setButtonLoading(button, false);
+      if (loadingMessage) WeightLoggerUtils.hideLoading();
+      if (button) WeightLoggerUtils.setButtonLoading(button, false);
     }
   },
 };
