@@ -2,6 +2,8 @@
 let scalePort = null;
 let scaleReader = null;
 let keepReadingScale = false;
+let scaleConnectInProgress = false;
+let stockInSaveInProgress = false;
 
 const PREFERRED_SCALE_IDS = [
     { usbVendorId: 0x0557, usbProductId: 0x2008 }, // ATEN UC232A
@@ -201,11 +203,13 @@ function getWeightRecordsArray() {
 
 function saveWeightRecordsArray(records) {
     const arr = Array.isArray(records) ? records : [];
-    weightRecordsCache = arr;
     try {
         localStorage.setItem('weight_records', JSON.stringify(arr));
+        weightRecordsCache = arr;
+        return true;
     } catch (err) {
         console.error('Error saving weight_records:', err);
+        return false;
     }
 }
 
@@ -516,11 +520,17 @@ async function beginScaleSession(port) {
 }
 
 async function connectPreferredScale({ auto = false } = {}) {
+    if (scaleConnectInProgress) {
+        showStatusMessage('Scale connection already in progress.', true);
+        return;
+    }
     if (!('serial' in navigator)) {
         showStatusMessage('Web Serial API not supported in this browser.', true);
         return;
     }
 
+    scaleConnectInProgress = true;
+    connectScaleBtn.disabled = true;
     try {
         const grantedPorts = await navigator.serial.getPorts();
         let port = grantedPorts.find(isPreferredScalePort);
@@ -560,6 +570,9 @@ async function connectPreferredScale({ auto = false } = {}) {
             console.error('Error during scale connection:', error);
             showStatusMessage(error.message || 'Failed to connect to the scale.', true);
         }
+    } finally {
+        scaleConnectInProgress = false;
+        connectScaleBtn.disabled = false;
     }
 }
 
@@ -933,6 +946,10 @@ unitSelect.addEventListener('change', () => {
 });
 
 saveRecordBtn.addEventListener('click', async () => {
+    if (stockInSaveInProgress) {
+        showStatusMessage('A save is already in progress.', true);
+        return;
+    }
     if (!currentScannedData) {
         showStatusMessage('Scan a label before saving.', true);
         if (qrInput) {
@@ -957,6 +974,7 @@ saveRecordBtn.addEventListener('click', async () => {
         return;
     }
 
+    stockInSaveInProgress = true;
     saveRecordBtn.disabled = true;
     saveRecordBtn.textContent = 'Saving...';
 
@@ -986,15 +1004,18 @@ saveRecordBtn.addEventListener('click', async () => {
         records.push(record);
         records = pruneOldRecords(records);
 
-        saveWeightRecordsArray(records);
+        if (!saveWeightRecordsArray(records)) {
+            throw new Error('Unable to save record to local storage. Storage may be full or unavailable.');
+        }
 
         showStatusMessage('Record saved successfully!', false);
         resetForm();
         loadRecords();
     } catch (err) {
         console.error('Error saving record:', err);
-        showStatusMessage('Error saving record. Check console.', true);
+        showStatusMessage(err?.message || 'Error saving record. Check console.', true);
     } finally {
+        stockInSaveInProgress = false;
         saveRecordBtn.disabled = false;
         saveRecordBtn.textContent = 'Save Record to Database';
         checkSaveButtonState();

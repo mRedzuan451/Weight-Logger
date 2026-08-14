@@ -7,6 +7,8 @@ const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
 const STOCK_TAKE_MANUAL_WEIGHT_ENABLED_KEY = 'feature_stock_take_manual_weight_enabled';
 const ST_PRINT_LOA_SETTINGS_KEY = 'st_print_loa_settings';
 const USERS_BACKUP_SCHEMA_VERSION = 1;
+const MAX_BACKUP_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+let usersRestoreInProgress = false;
 const USERS_BACKUP_KEYS = [
   'weight_records',
   'stock_out_records',
@@ -148,8 +150,14 @@ function loadUsers() {
 }
 
 function saveUsers(users) {
-  if (!Array.isArray(users)) return;
-  localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
+  if (!Array.isArray(users)) return false;
+  try {
+    localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
+    return true;
+  } catch (error) {
+    console.error('Error saving users:', error);
+    return false;
+  }
 }
 
 function getAuthApi() {
@@ -301,9 +309,30 @@ function usersRestoreFromBackupObject(backup) {
   }
 }
 
-function usersHandleRestoreFile(file) {
+function setRestoreUiBusy(isBusy, restoreBtn, restoreInput) {
+  usersRestoreInProgress = isBusy;
+  if (restoreBtn) {
+    restoreBtn.disabled = isBusy;
+    restoreBtn.textContent = isBusy ? 'Restoring...' : 'Restore JSON';
+  }
+  if (restoreInput) {
+    restoreInput.disabled = isBusy;
+  }
+}
+
+function usersHandleRestoreFile(file, restoreBtn, restoreInput) {
   if (!file) return;
+  if (usersRestoreInProgress) {
+    showStatus('A restore is already in progress.', true);
+    return;
+  }
+  if (file.size > MAX_BACKUP_FILE_SIZE_BYTES) {
+    showStatus('Backup file is too large to restore safely.', true);
+    return;
+  }
+
   const reader = new FileReader();
+  setRestoreUiBusy(true, restoreBtn, restoreInput);
   reader.onload = () => {
     try {
       const text = reader.result;
@@ -316,9 +345,12 @@ function usersHandleRestoreFile(file) {
     } catch (error) {
       console.error('Error reading backup file:', error);
       showStatus('Selected file is not a valid JSON backup.', true);
+    } finally {
+      setRestoreUiBusy(false, restoreBtn, restoreInput);
     }
   };
   reader.onerror = () => {
+    setRestoreUiBusy(false, restoreBtn, restoreInput);
     showStatus('Failed to read backup file.', true);
   };
   reader.readAsText(file);
@@ -416,7 +448,10 @@ async function handleResetPassword(username) {
     return;
   }
   user.passwordHash = await hashPassword(username, trimmed);
-  saveUsers(users);
+  if (!saveUsers(users)) {
+    showStatus('Failed to update password. Storage may be full or unavailable.', true);
+    return;
+  }
   showStatus('Password updated.', false);
   updateStorageUsageDisplay();
 }
@@ -461,7 +496,10 @@ function handleToggleActive(username) {
     }
   }
   user.active = nextActive;
-  saveUsers(users);
+  if (!saveUsers(users)) {
+    showStatus('Failed to update user status. Storage may be full or unavailable.', true);
+    return;
+  }
   renderUsers();
   showStatus(user.active !== false ? 'User activated.' : 'User deactivated.', false);
   updateStorageUsageDisplay();
@@ -548,6 +586,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (restoreBtn && restoreInput) {
     restoreBtn.addEventListener('click', () => {
+      if (usersRestoreInProgress) return;
       restoreInput.value = '';
       restoreInput.click();
     });
@@ -555,7 +594,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const target = event.target;
       const file = target.files && target.files[0];
       if (file) {
-        usersHandleRestoreFile(file);
+        usersHandleRestoreFile(file, restoreBtn, restoreInput);
       }
       target.value = '';
     });
@@ -599,7 +638,10 @@ window.addEventListener('DOMContentLoaded', () => {
       active: true,
       passwordHash: await hashPassword(username, password),
     });
-    saveUsers(users);
+    if (!saveUsers(users)) {
+      showStatus('Failed to create user. Storage may be full or unavailable.', true);
+      return;
+    }
     renderUsers();
 
     usernameEl.value = '';

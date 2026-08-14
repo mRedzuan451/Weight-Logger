@@ -1,5 +1,6 @@
 // --- State ---
 let currentScannedData = null;
+let stockOutSaveInProgress = false;
 
 const MAX_RECORD_AGE_DAYS = 60;
 const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
@@ -131,7 +132,13 @@ function readLocal(name) {
 
 function writeLocal(name, value) {
   const pruned = pruneRecords(value);
-  localStorage.setItem(name, JSON.stringify(pruned));
+  try {
+    localStorage.setItem(name, JSON.stringify(pruned));
+    return true;
+  } catch (error) {
+    console.error(`Error saving ${name}:`, error);
+    return false;
+  }
 }
 
 function renderRecentStockOutRecords() {
@@ -280,6 +287,10 @@ qrInput.addEventListener('change', (e) => {
 });
 
 saveOutBtn.addEventListener('click', () => {
+  if (stockOutSaveInProgress) {
+    showStatus('A save is already in progress.', true);
+    return;
+  }
   if (!currentScannedData || !currentScannedData.labelId) {
     showStatus('Scan an item with a valid label ID before saving.', true);
     qrInput.focus();
@@ -294,6 +305,10 @@ saveOutBtn.addEventListener('click', () => {
     return;
   }
 
+  stockOutSaveInProgress = true;
+  saveOutBtn.disabled = true;
+
+  try {
   // Save record
   const outs = readLocal('stock_out_records');
   const currentUser = getCurrentUser();
@@ -310,7 +325,9 @@ saveOutBtn.addEventListener('click', () => {
     responsibleUser: currentUser.displayName || currentUser.name || currentUser.username || '',
     status: 'OUT'
   });
-  writeLocal('stock_out_records', outs);
+  if (!writeLocal('stock_out_records', outs)) {
+    throw new Error('Unable to save stock-out record to local storage. Storage may be full or unavailable.');
+  }
 
   renderRecentStockOutRecords();
 
@@ -320,6 +337,16 @@ saveOutBtn.addEventListener('click', () => {
   // Refresh status so subsequent scans respect latest data
   updateStatusMessage(currentScannedData.labelId);
   qrInput.focus();
+  } catch (error) {
+    console.error('Error saving stock-out record:', error);
+    showStatus(error?.message || 'Failed to save stock-out record.', true);
+    updateStatusMessage(currentScannedData?.labelId);
+  } finally {
+    stockOutSaveInProgress = false;
+    if (getStatusForLabel(currentScannedData?.labelId) === 'In Stock') {
+      saveOutBtn.disabled = false;
+    }
+  }
 });
 
 // Focus QR input on load

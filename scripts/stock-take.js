@@ -43,6 +43,7 @@ let scaleReader = null;
 let keepReadingScale = false;
 let currentWeight = 0;
 let scaleConnectInProgress = false;
+let stockTakeApplyInProgress = false;
 const DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS = 5;
 let stockTakeToleranceGrams = DEFAULT_STOCK_TAKE_TOLERANCE_GRAMS;
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
@@ -333,11 +334,13 @@ function getWeightRecordsArray() {
 
 function saveWeightRecordsArray(records) {
   const arr = Array.isArray(records) ? records : [];
-  weightRecordsCache = arr;
   try {
     localStorage.setItem('weight_records', JSON.stringify(arr));
+    weightRecordsCache = arr;
+    return true;
   } catch (err) {
     console.error('Error saving weight_records:', err);
+    return false;
   }
 }
 
@@ -359,15 +362,22 @@ function getStockTakeHistoryArray() {
 
 function saveStockTakeHistoryArray(records) {
   const arr = Array.isArray(records) ? records : [];
-  stockTakeHistoryCache = arr;
   try {
     localStorage.setItem(STOCK_TAKE_HISTORY_KEY, JSON.stringify(arr));
+    stockTakeHistoryCache = arr;
+    return true;
   } catch (err) {
     console.error('Error saving stock_take_history:', err);
+    return false;
   }
 }
 
 function applyStockTakeUpdates() {
+  if (stockTakeApplyInProgress) {
+    showStatus('Stock take update already in progress.', true);
+    refocusQrInputSoon();
+    return;
+  }
   try {
     const currentUser = getCurrentUser();
     if (!canUpdateWeight(currentUser)) {
@@ -518,7 +528,17 @@ function applyStockTakeUpdates() {
 }
 
 function executeStockTakeUpdates() {
+  if (stockTakeApplyInProgress) {
+    showStatus('Stock take update already in progress.', true);
+    refocusQrInputSoon();
+    return;
+  }
   let didApply = false;
+  stockTakeApplyInProgress = true;
+  if (applyBtn) {
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Applying...';
+  }
   try {
     // Hide modal first
     if (confirmModal) {
@@ -647,22 +667,26 @@ function executeStockTakeUpdates() {
       }
     });
 
-    saveWeightRecordsArray(ins);
+    if (!saveWeightRecordsArray(ins)) {
+      throw new Error('Unable to save updated stock weights to local storage. Storage may be full or unavailable.');
+    }
 
     // Append stock-take history
     if (historyEntries.length) {
-      try {
-        let history = getStockTakeHistoryArray();
-        if (!Array.isArray(history)) history = [];
-        history.push(...historyEntries);
-        saveStockTakeHistoryArray(history);
-      } catch (err) {
-        console.error('Error saving stock take history:', err);
+      let history = getStockTakeHistoryArray();
+      if (!Array.isArray(history)) history = [];
+      history.push(...historyEntries);
+      if (!saveStockTakeHistoryArray(history)) {
+        throw new Error('Unable to save stock-take history to local storage. Storage may be full or unavailable.');
       }
     }
 
     // Clear saved stock-take state so everything resets to "Not checked"
-    localStorage.removeItem(STOCK_TAKE_STATE_KEY);
+    try {
+      localStorage.removeItem(STOCK_TAKE_STATE_KEY);
+    } catch (error) {
+      console.error('Error clearing stock-take state:', error);
+    }
 
     showStatus('Stock take updates applied. List reloaded with new weights.', false);
     didApply = true;
@@ -670,8 +694,14 @@ function executeStockTakeUpdates() {
     loadInStockItems();
   } catch (err) {
     console.error('Error applying stock take updates:', err);
-    showStatus('Failed to apply stock take updates. See console.', true);
+    showStatus(err?.message || 'Failed to apply stock take updates. See console.', true);
   } finally {
+    stockTakeApplyInProgress = false;
+    if (applyBtn) {
+      const currentUser = getCurrentUser();
+      applyBtn.disabled = !canUpdateWeight(currentUser);
+      applyBtn.textContent = 'Apply';
+    }
     try {
       ensureQrInputInteractive();
       refocusQrInputSoon();
@@ -1566,7 +1596,12 @@ qrInput.addEventListener('change', (e) => {
 });
 
 connectScaleBtn.addEventListener('click', () => {
+  if (scaleConnectInProgress) {
+    showStatus('Scale connection already in progress.', true);
+    return;
+  }
   (async () => {
+    connectScaleBtn.disabled = true;
     try {
       if ('serial' in navigator) {
         const ports = await navigator.serial.getPorts();
@@ -1583,6 +1618,10 @@ connectScaleBtn.addEventListener('click', () => {
         }
       }
     } catch {
+    } finally {
+      if (!scaleConnectInProgress) {
+        connectScaleBtn.disabled = false;
+      }
     }
     connectPreferredScale();
   })();
