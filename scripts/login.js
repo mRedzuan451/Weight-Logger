@@ -43,7 +43,16 @@ function saveUsers(users) {
   localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
 }
 
-function makePasswordHash(username, password) {
+function getAuthApi() {
+  return window.electronAuth || null;
+}
+
+async function hashPassword(username, password) {
+  const authApi = getAuthApi();
+  if (authApi?.hashPassword) {
+    return authApi.hashPassword(username, password);
+  }
+
   // Simple obfuscation, not real security, but better than plain text for this offline tool.
   try {
     return btoa(`${username}:${password}`);
@@ -52,19 +61,40 @@ function makePasswordHash(username, password) {
   }
 }
 
-function ensureDefaultAdmin() {
-  let users = loadUsers();
-  const hasAdmin = users.some(u => u && u.username === 'admin');
-  if (!hasAdmin) {
-    users.push({
-      username: 'admin',
-      displayName: 'Administrator',
-      role: 'admin',
-      active: true,
-      passwordHash: makePasswordHash('admin', 'admin123'),
-    });
-    saveUsers(users);
+async function verifyPassword(username, password, passwordHash) {
+  const authApi = getAuthApi();
+  if (authApi?.verifyPassword) {
+    return authApi.verifyPassword(username, password, passwordHash);
   }
+  const expected = await hashPassword(username, password);
+  return !!expected && expected === passwordHash;
+}
+
+async function isLegacyPasswordHash(passwordHash) {
+  const authApi = getAuthApi();
+  if (authApi?.isLegacyPasswordHash) {
+    return authApi.isLegacyPasswordHash(passwordHash);
+  }
+  return typeof passwordHash === 'string' && !passwordHash.startsWith('scrypt$');
+}
+
+async function ensureBootstrapAdmin() {
+  const users = loadUsers();
+  if (users.length) return { users, bootstrapApplied: false };
+
+  const authApi = getAuthApi();
+  if (!authApi?.getBootstrapAdmin) {
+    return { users, bootstrapApplied: false };
+  }
+
+  const bootstrapUser = await authApi.getBootstrapAdmin();
+  if (!bootstrapUser) {
+    return { users, bootstrapApplied: false };
+  }
+
+  const nextUsers = [bootstrapUser];
+  saveUsers(nextUsers);
+  return { users: nextUsers, bootstrapApplied: true };
 }
 
 function getReturnUrl() {
@@ -103,69 +133,112 @@ function setCurrentUser(user) {
   });
 }
 
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem('current_user')) || null;
-  } catch {
-    return null;
+function toggleSetupMode(enabled) {
+  const signInTitle = document.getElementById('login-title');
+  const subtitle = document.getElementById('login-subtitle');
+  const loginForm = document.getElementById('login-form');
+  const setupPanel = document.getElementById('setup-form');
+  if (signInTitle) signInTitle.textContent = enabled ? 'Set up administrator account' : 'Sign in';
+  if (subtitle) {
+    subtitle.textContent = enabled
+      ? 'No users exist yet. Create the first administrator account to continue.'
+      : 'Enter your username and password.';
   }
+  if (loginForm) loginForm.classList.toggle('hidden', enabled);
+  if (setupPanel) setupPanel.classList.toggle('hidden', !enabled);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  ensureDefaultAdmin();
+function showMessage(element, message, isError) {
+  if (!element) return;
+  if (!message) {
+    element.className = 'hidden text-sm rounded-md px-3 py-2';
+    element.textContent = '';
+    return;
+  }
+  element.textContent = message;
+  element.className = `text-sm rounded-md px-3 py-2 ${isError ? 'text-red-700 bg-red-100' : 'text-green-700 bg-green-100'}`;
+}
 
-  const form = document.getElementById('login-form');
-  if (!form) return;
-
+window.addEventListener('DOMContentLoaded', async () => {
+  const loginForm = document.getElementById('login-form');
+  const setupForm = document.getElementById('setup-form');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const error = document.getElementById('error');
+  const setupUsernameInput = document.getElementById('setup-username');
+  const setupDisplayNameInput = document.getElementById('setup-display-name');
+  const setupEmployeeIdInput = document.getElementById('setup-employee-id');
+  const setupPasswordInput = document.getElementById('setup-password');
+  const setupConfirmInput = document.getElementById('setup-password-confirm');
+  const setupMessage = document.getElementById('setup-message');
+
+  const { users, bootstrapApplied } = await ensureBootstrapAdmin();
+  const needsSetup = !users.length;
+  toggleSetupMode(needsSetup);
+  if (bootstrapApplied) {
+    showMessage(error, 'Bootstrap admin account created from environment settings. Please sign in.', false);
+  }
+  if (!loginForm || !setupForm || !usernameInput || !passwordInput) return;
 
   function clearErrorState() {
-    if (error) {
-      error.classList.add('hidden');
-      error.textContent = '';
-    }
-    if (usernameInput) {
-      usernameInput.classList.remove('border-red-500', 'ring-red-300');
-    }
-    if (passwordInput) {
-      passwordInput.classList.remove('border-red-500', 'ring-red-300');
-    }
+    showMessage(error, '', true);
+    usernameInput.classList.remove('border-red-500', 'ring-red-300');
+    passwordInput.classList.remove('border-red-500', 'ring-red-300');
   }
 
-  if (usernameInput) {
-    usernameInput.addEventListener('input', clearErrorState);
-  }
-  if (passwordInput) {
-    passwordInput.addEventListener('input', clearErrorState);
-  }
+  usernameInput.addEventListener('input', clearErrorState);
+  passwordInput.addEventListener('input', clearErrorState);
 
-  form.addEventListener('submit', (event) => {
+  setupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!setupUsernameInput || !setupPasswordInput || !setupConfirmInput) return;
 
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    if (!usernameInput || !passwordInput) return;
+    const username = setupUsernameInput.value.trim();
+    const displayName = (setupDisplayNameInput?.value || '').trim();
+    const employeeId = (setupEmployeeIdInput?.value || '').trim();
+    const password = setupPasswordInput.value;
+    const confirmPassword = setupConfirmInput.value;
 
+    showMessage(setupMessage, '', true);
+    if (!username || !password) {
+      showMessage(setupMessage, 'Username and password are required.', true);
+      return;
+    }
+    if (password !== confirmPassword) {
+      showMessage(setupMessage, 'Passwords do not match.', true);
+      return;
+    }
+    if (loadUsers().length) {
+      toggleSetupMode(false);
+      showMessage(error, 'An administrator account already exists. Please sign in.', true);
+      return;
+    }
+
+    const passwordHash = await hashPassword(username, password);
+    saveUsers([{
+      username,
+      displayName: displayName || username,
+      employeeId: employeeId || username,
+      role: 'admin',
+      active: true,
+      passwordHash,
+    }]);
+
+    setupForm.reset();
+    toggleSetupMode(false);
+    showMessage(error, 'Administrator account created. Please sign in.', false);
+    usernameInput.value = username;
+    usernameInput.focus();
+  });
+
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
 
-    const error = document.getElementById('error');
-    if (error) {
-      error.classList.add('hidden');
-      error.textContent = '';
-    }
-    usernameInput.classList.remove('border-red-500', 'ring-red-300');
-    passwordInput.classList.remove('border-red-500', 'ring-red-300');
-
+    clearErrorState();
     if (!username || !password) {
-      if (error) {
-        error.textContent = 'Please enter both username and password.';
-        error.classList.remove('hidden');
-      } else {
-        alert('Please enter both username and password.');
-      }
+      showMessage(error, 'Please enter both username and password.', true);
       if (!username) {
         usernameInput.classList.add('border-red-500', 'ring-red-300');
       }
@@ -175,32 +248,33 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const users = loadUsers();
-    const user = users.find(u => u && u.username === username && u.active !== false);
+    const currentUsers = loadUsers();
+    if (!currentUsers.length) {
+      toggleSetupMode(true);
+      showMessage(setupMessage, 'Create the first administrator account before signing in.', true);
+      return;
+    }
+
+    const user = currentUsers.find(u => u && u.username === username && u.active !== false);
     if (!user) {
-      if (error) {
-        error.textContent = 'Invalid username or password.';
-        error.classList.remove('hidden');
-      } else {
-        alert('Invalid username or password.');
-      }
+      showMessage(error, 'Invalid username or password.', true);
       usernameInput.classList.add('border-red-500', 'ring-red-300');
       passwordInput.classList.add('border-red-500', 'ring-red-300');
       return;
     }
 
     const expectedHash = user.passwordHash;
-    const actualHash = makePasswordHash(username, password);
-    if (!expectedHash || expectedHash !== actualHash) {
-      if (error) {
-        error.textContent = 'Invalid username or password.';
-        error.classList.remove('hidden');
-      } else {
-        alert('Invalid username or password.');
-      }
+    const verified = await verifyPassword(username, password, expectedHash);
+    if (!verified) {
+      showMessage(error, 'Invalid username or password.', true);
       usernameInput.classList.add('border-red-500', 'ring-red-300');
       passwordInput.classList.add('border-red-500', 'ring-red-300');
       return;
+    }
+
+    if (await isLegacyPasswordHash(expectedHash)) {
+      user.passwordHash = await hashPassword(username, password);
+      saveUsers(currentUsers);
     }
 
     setCurrentUser({ username: user.username, displayName: user.displayName, employeeId: user.employeeId, role: user.role });

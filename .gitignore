@@ -15,3 +15,7 @@ yarn-error.log*
 Thumbs.db
 
 weightlogger-backup-*.json
+
+.env
+.env.local
+.env.*.local

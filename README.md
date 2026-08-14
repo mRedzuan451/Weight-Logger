@@ -7,7 +7,7 @@ A lightweight warehouse tool for scanning stock packets, recording their weights
 - **Stock In:** Connect to a digital scale via the Web Serial API, scan packet QR/Barcode codes, lock measured weights, and save records locally.
 - **Stock Out:** Reuse scanned packet data to remove weight, auto-calculate remaining quantities and pieces, and export CSV logs.
 - **Admin Dashboard:** View combined Stock In/Out history, filter by date range, and export data.
-- **Role Awareness:** Login required for access, with an admin-only entry point (`name: admin`, `employeeId: 1234`).
+- **Role Awareness:** Login required for access, with admin-only pages restricted by the signed-in user's role.
 - **Data Retention:** Automatically prunes stock records older than 60 days.
 - **Offline Ready:** Manifest and service worker cache the app shell for installation and offline usage.
 
@@ -42,7 +42,7 @@ Weight Logger/
      npx http-server . -p 8080
      ```
 3. **Open** `http://localhost:8080/login.html` (or the corresponding file path) in the browser.
-4. **Sign in** with your name and employee ID. Use `admin / 1234` to reveal the admin dashboard.
+4. **Sign in** with a configured user account. On first launch, create the initial administrator account or provide `DEFAULT_ADMIN_USERNAME` and `DEFAULT_ADMIN_PASSWORD` in your `.env` file.
 
 ## Offline Usage
 

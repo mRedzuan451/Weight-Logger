@@ -12,6 +12,9 @@
     "build": "npm run prepare-build && electron-builder build --dir",
     "dist": "npm run prepare-build && electron-builder --win --x64"
   },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",

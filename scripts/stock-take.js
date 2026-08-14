@@ -271,11 +271,7 @@ function getCurrentUser() {
 }
 
 function isAdmin(user) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  const name = (user.name || '').trim().toLowerCase();
-  const id = (user.employeeId || user.username || '').trim();
-  return name === 'admin' && id === '1234';
+  return !!user && user.role === 'admin';
 }
 
 function canUpdateWeight(user) {

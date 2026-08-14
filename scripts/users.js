@@ -50,11 +50,7 @@ function saveGlobalStockTakeDiffLimit(value) {
 }
 
 function isAdmin(user) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  const name = (user.name || '').trim().toLowerCase();
-  const id = (user.employeeId || user.username || '').trim();
-  return name === 'admin' && id === '1234';
+  return !!user && user.role === 'admin';
 }
 
 function isSupervisor(user) {
@@ -156,7 +152,15 @@ function saveUsers(users) {
   localStorage.setItem(USER_ACCOUNTS_KEY, JSON.stringify(users));
 }
 
-function makePasswordHash(username, password) {
+function getAuthApi() {
+  return window.electronAuth || null;
+}
+
+async function hashPassword(username, password) {
+  const authApi = getAuthApi();
+  if (authApi?.hashPassword) {
+    return authApi.hashPassword(username, password);
+  }
   try {
     return btoa(`${username}:${password}`);
   } catch {
@@ -390,14 +394,14 @@ function renderUsers() {
       <td class="px-4 py-2 whitespace-nowrap text-sm ${active ? 'text-green-700' : 'text-gray-400'}">${active ? 'Active' : 'Inactive'}</td>
       <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700 space-x-2">
         <button data-action="reset" data-username="${user.username}" class="text-blue-600 hover:text-blue-800 font-semibold">Reset PW</button>
-        ${user.username !== 'admin' ? `<button data-action="toggle" data-username="${user.username}" class="text-amber-600 hover:text-amber-800 font-semibold">${active ? 'Deactivate' : 'Activate'}</button>` : ''}
+        <button data-action="toggle" data-username="${user.username}" class="text-amber-600 hover:text-amber-800 font-semibold">${active ? 'Deactivate' : 'Activate'}</button>
       </td>
     `;
     tbody.appendChild(tr);
   }
 }
 
-function handleResetPassword(username) {
+async function handleResetPassword(username) {
   const pwd = prompt(`Enter new password for ${username}:`, '');
   if (pwd === null) return;
   const trimmed = pwd.trim();
@@ -411,7 +415,7 @@ function handleResetPassword(username) {
     showStatus('User not found.', true);
     return;
   }
-  user.passwordHash = makePasswordHash(username, trimmed);
+  user.passwordHash = await hashPassword(username, trimmed);
   saveUsers(users);
   showStatus('Password updated.', false);
   updateStorageUsageDisplay();
@@ -448,11 +452,15 @@ function handleToggleActive(username) {
     showStatus('User not found.', true);
     return;
   }
-  if (user.username === 'admin') {
-    showStatus('Cannot deactivate the default admin account.', true);
-    return;
+  const nextActive = user.active === false;
+  if (!nextActive && user.role === 'admin') {
+    const activeAdminCount = users.filter(u => u && u.role === 'admin' && u.active !== false).length;
+    if (activeAdminCount <= 1) {
+      showStatus('Cannot deactivate the last active admin account.', true);
+      return;
+    }
   }
-  user.active = user.active === false ? true : false;
+  user.active = nextActive;
   saveUsers(users);
   renderUsers();
   showStatus(user.active !== false ? 'User activated.' : 'User deactivated.', false);
@@ -554,7 +562,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const form = document.getElementById('user-form');
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const usernameEl = document.getElementById('user-username');
     const displayEl = document.getElementById('user-display-name');
@@ -589,7 +597,7 @@ window.addEventListener('DOMContentLoaded', () => {
       employeeId: employeeId || username,
       role,
       active: true,
-      passwordHash: makePasswordHash(username, password),
+      passwordHash: await hashPassword(username, password),
     });
     saveUsers(users);
     renderUsers();
@@ -612,8 +620,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!action || !username) return;
 
     if (action === 'reset') {
-      handleResetPassword(username);
-      renderUsers();
+      handleResetPassword(username).then(() => {
+        renderUsers();
+      });
     } else if (action === 'toggle') {
       handleToggleActive(username);
     }

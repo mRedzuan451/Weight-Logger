@@ -1,5 +1,72 @@
-const { app, BrowserWindow, dialog } = require('electron');
+require('dotenv').config();
+
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const crypto = require('crypto');
 const path = require('path');
+
+function normalizeUsername(username) {
+  return typeof username === 'string' ? username.trim() : '';
+}
+
+function normalizePassword(password) {
+  return typeof password === 'string' ? password : '';
+}
+
+function hashPassword(username, password) {
+  const normalizedUsername = normalizeUsername(username);
+  const normalizedPassword = normalizePassword(password);
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(`${normalizedUsername}:${normalizedPassword}`, salt, 64);
+  return `scrypt$${salt}$${derivedKey.toString('hex')}`;
+}
+
+function isLegacyPasswordHash(passwordHash) {
+  return typeof passwordHash === 'string' && !passwordHash.startsWith('scrypt$');
+}
+
+function verifyPassword(username, password, passwordHash) {
+  const normalizedUsername = normalizeUsername(username);
+  const normalizedPassword = normalizePassword(password);
+  if (typeof passwordHash !== 'string' || !passwordHash) return false;
+  if (isLegacyPasswordHash(passwordHash)) {
+    const legacyValue = `${normalizedUsername}:${normalizedPassword}`;
+    let encoded = legacyValue;
+    try {
+      encoded = Buffer.from(legacyValue, 'utf8').toString('base64');
+    } catch {
+    }
+    return passwordHash === encoded || passwordHash === legacyValue;
+  }
+
+  const parts = passwordHash.split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt' || !parts[1] || !parts[2]) return false;
+  try {
+    const derivedKey = crypto.scryptSync(`${normalizedUsername}:${normalizedPassword}`, parts[1], 64);
+    const actual = Buffer.from(parts[2], 'hex');
+    return actual.length === derivedKey.length && crypto.timingSafeEqual(actual, derivedKey);
+  } catch {
+    return false;
+  }
+}
+
+function getBootstrapAdmin() {
+  const username = normalizeUsername(process.env.DEFAULT_ADMIN_USERNAME || 'admin');
+  const password = normalizePassword(process.env.DEFAULT_ADMIN_PASSWORD);
+  if (!username || !password) return null;
+  return {
+    username,
+    displayName: process.env.DEFAULT_ADMIN_DISPLAY_NAME || 'Administrator',
+    employeeId: process.env.DEFAULT_ADMIN_EMPLOYEE_ID || username,
+    role: 'admin',
+    active: true,
+    passwordHash: hashPassword(username, password),
+  };
+}
+
+ipcMain.handle('auth:hash-password', (_event, username, password) => hashPassword(username, password));
+ipcMain.handle('auth:verify-password', (_event, username, password, passwordHash) => verifyPassword(username, password, passwordHash));
+ipcMain.handle('auth:is-legacy-password-hash', (_event, passwordHash) => isLegacyPasswordHash(passwordHash));
+ipcMain.handle('auth:get-bootstrap-admin', () => getBootstrapAdmin());
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
