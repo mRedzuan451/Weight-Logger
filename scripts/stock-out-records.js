@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureLoggedIn, safeParseArray } = window.WeightLoggerUtils;
+
 const recordsBody = document.getElementById('records-body');
 const paginationControls = document.getElementById('pagination-controls');
 const prevPageBtn = document.getElementById('prev-page-btn');
@@ -12,25 +14,6 @@ const RECORDS_PER_PAGE = 20;
 let currentPage = 1;
 let allRecords = [];
 
-function getCurrentUser() {
-  try {
-    const u = localStorage.getItem('current_user');
-    return u ? JSON.parse(u) : null;
-  } catch {
-    return null;
-  }
-}
-
-function ensureLoggedIn() {
-  const user = getCurrentUser();
-  if (!user || !(user.name || user.username)) {
-    const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'stock-out-records.html');
-    window.location.href = `login.html?return=${ret}`;
-    return false;
-  }
-  return true;
-}
-
 function showEmpty(message) {
   recordsBody.innerHTML = `
     <tr>
@@ -41,7 +24,7 @@ function showEmpty(message) {
 function loadRecords() {
   try {
     const stored = localStorage.getItem(RECORDS_KEY);
-    allRecords = stored ? JSON.parse(stored) : [];
+    allRecords = safeParseArray(stored);
   } catch (error) {
     console.error('Error reading stock out records:', error);
     allRecords = [];
@@ -163,6 +146,6 @@ function escapeCsv(value) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  if (!ensureLoggedIn()) return;
+  if (!ensureLoggedIn('stock-out-records.html')) return;
   loadRecords();
 });

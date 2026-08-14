@@ -1,3 +1,5 @@
+const { ensureLoggedIn, formatNumber, getCurrentUser, redirectToLogin, safeParseArray } = window.WeightLoggerUtils;
+
 // --- Global State ---
 let scalePort = null;
 let scaleReader = null;
@@ -49,15 +51,6 @@ function getPreferredScaleIds() {
     } catch {
         return [...PREFERRED_SCALE_IDS];
     }
-}
-
-function formatNumber(value, decimals = 2) {
-    const n = Number(value);
-    if (Number.isNaN(n)) return '';
-    return n.toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-    });
 }
 
 function toGrams(value, unit) {
@@ -172,26 +165,8 @@ const nextPageBtn = document.getElementById('next-page-btn');
 const pageInfo = document.getElementById('page-info');
 
 // --- Utility Functions ---
-function getCurrentUser() {
-    try {
-        const u = localStorage.getItem('current_user');
-        return u ? JSON.parse(u) : null;
-    } catch {
-        return null;
-    }
-}
-
 let weightRecordsCache = null;
 let stockOutRecordsCache = null;
-
-function safeParseArray(text) {
-    try {
-        const parsed = text ? JSON.parse(text) : [];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
 
 function getWeightRecordsArray() {
     if (!weightRecordsCache) {
@@ -276,19 +251,6 @@ function applyPartialPacketLogic(scanned) {
     }
 }
 
-function redirectToLogin() {
-    const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'index.html');
-    window.location.href = `login.html?return=${ret}`;
-}
-
-function ensureLoggedIn() {
-    const user = getCurrentUser();
-    if (!user || !(user.name || user.username)) {
-        redirectToLogin();
-        return false;
-    }
-    return true;
-}
 
 function handleLogout(event) {
     if (event) {

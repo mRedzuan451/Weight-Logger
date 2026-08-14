@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureLoggedIn, formatNumber, getCurrentUser, isAdmin, redirectToLogin, safeParseArray } = window.WeightLoggerUtils;
+
 const SCALE_SERIAL_OPTIONS = {
   baudRate: 2400,
   dataBits: 7,
@@ -253,27 +255,6 @@ function setStockTakeScanMode(nextMode) {
   refocusQrInputSoon();
 }
 
-function formatNumber(value, decimals = 2) {
-  const n = Number(value);
-  if (Number.isNaN(n)) return '';
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem('current_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function isAdmin(user) {
-  return !!user && user.role === 'admin';
-}
 
 function canUpdateWeight(user) {
   if (!user) return false;
@@ -314,15 +295,6 @@ function refreshStockTakeDiffLimit() {
 let weightRecordsCache = null;
 let stockOutRecordsCache = null;
 let stockTakeHistoryCache = null;
-
-function safeParseArray(text) {
-  try {
-    const parsed = text ? JSON.parse(text) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 function getWeightRecordsArray() {
   if (!weightRecordsCache) {
@@ -1103,23 +1075,11 @@ function updateStockTakeSortIndicators() {
   });
 }
 
-function redirectToLogin() {
-  window.location.href = 'login.html?return=stock-take.html';
-}
-
-function ensureLoggedIn() {
-  const user = getCurrentUser();
-  if (!user || !(user.name || user.username)) {
-    redirectToLogin();
-    return false;
-  }
-  return true;
-}
 
 function handleLogout(e) {
   e?.preventDefault();
   localStorage.removeItem('current_user');
-  redirectToLogin();
+  redirectToLogin('stock-take.html');
 }
 
 function showStatus(message, isError = false) {
@@ -1635,7 +1595,7 @@ updateMicBtn?.addEventListener('click', openMicUpdateWindow);
 printBtn?.addEventListener('click', handlePrintReport);
 
 window.addEventListener('DOMContentLoaded', () => {
-  if (!ensureLoggedIn()) return;
+  if (!ensureLoggedIn('stock-take.html')) return;
 
   try {
     const params = new URLSearchParams(window.location.search || '');

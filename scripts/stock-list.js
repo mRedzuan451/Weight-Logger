@@ -1,5 +1,7 @@
 'use strict';
 
+const { ensureLoggedIn, formatNumber, redirectToLogin, safeParseArray } = window.WeightLoggerUtils;
+
 const bodyEl = document.getElementById('stocklist-body');
 const statusBox = document.getElementById('stocklist-status');
 const logoutBtn = document.getElementById('logout-btn');
@@ -11,24 +13,6 @@ let allRows = [];
 let currentSort = { key: 'labelId', direction: 'asc' };
 let headerCells = [];
 const sortKeys = ['labelId', 'itemName', 'itemId', 'lotNo', 'manufacturingLot', 'quantity', 'expectedWeight'];
-
-function formatNumber(value, decimals = 2) {
-  const n = Number(value);
-  if (Number.isNaN(n)) return '';
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem('current_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function compareValues(a, b, direction) {
   if (a == null && b == null) return 0;
@@ -229,23 +213,11 @@ function updateSortIndicators() {
   });
 }
 
-function redirectToLogin() {
-  window.location.href = 'login.html?return=stock-list.html';
-}
-
-function ensureLoggedIn() {
-  const user = getCurrentUser();
-  if (!user || !(user.name || user.username)) {
-    redirectToLogin();
-    return false;
-  }
-  return true;
-}
 
 function handleLogout(e) {
   e?.preventDefault();
   localStorage.removeItem('current_user');
-  redirectToLogin();
+  redirectToLogin('stock-list.html');
 }
 
 function showStatus(message, isError = false) {
@@ -267,8 +239,8 @@ function loadStockList() {
   try {
     const insRaw = localStorage.getItem('weight_records');
     const outsRaw = localStorage.getItem('stock_out_records');
-    const ins = insRaw ? JSON.parse(insRaw) : [];
-    const outs = outsRaw ? JSON.parse(outsRaw) : [];
+    const ins = safeParseArray(insRaw);
+    const outs = safeParseArray(outsRaw);
 
     const latestInByLabel = buildLatestRecordMap(ins);
     const latestOutByLabel = buildLatestRecordMap(outs);
@@ -305,7 +277,7 @@ function loadStockList() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  if (!ensureLoggedIn()) return;
+  if (!ensureLoggedIn('stock-list.html')) return;
   logoutBtn?.addEventListener('click', handleLogout);
   printBtn?.addEventListener('click', () => {
     window.print();

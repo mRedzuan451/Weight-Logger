@@ -1,3 +1,5 @@
+const { ensureLoggedIn, getCurrentUser, redirectToLogin } = window.WeightLoggerUtils;
+
 // --- State ---
 let currentScannedData = null;
 let stockOutSaveInProgress = false;
@@ -28,35 +30,13 @@ function showStatus(message, isError = false) {
   setTimeout(() => (statusMessage.style.display = 'none'), 3000);
 }
 
-function getCurrentUser() {
-  try {
-    const u = localStorage.getItem('current_user');
-    return u ? JSON.parse(u) : null;
-  } catch {
-    return null;
-  }
-}
-
-function redirectToLogin() {
-  const ret = encodeURIComponent((location.pathname.split('/').pop()) || 'stock-out.html');
-  window.location.href = `login.html?return=${ret}`;
-}
-
-function ensureLoggedIn() {
-  const user = getCurrentUser();
-  if (!user || !(user.name || user.username)) {
-    redirectToLogin();
-    return false;
-  }
-  return true;
-}
 
 function handleLogout(event) {
   if (event) {
     event.preventDefault();
   }
   localStorage.removeItem('current_user');
-  redirectToLogin();
+  redirectToLogin('stock-out.html');
 }
 
 function parseScanned(raw) {
@@ -314,7 +294,7 @@ saveOutBtn.addEventListener('click', () => {
   const currentUser = getCurrentUser();
   if (!currentUser) {
     showStatus('Please login before saving.', true);
-    redirectToLogin();
+    redirectToLogin('stock-out.html');
     return;
   }
   outs.push({
@@ -351,7 +331,7 @@ saveOutBtn.addEventListener('click', () => {
 
 // Focus QR input on load
 window.addEventListener('DOMContentLoaded', () => {
-  if (!ensureLoggedIn()) return;
+  if (!ensureLoggedIn('stock-out.html')) return;
   logoutBtn?.addEventListener('click', handleLogout);
   renderRecentStockOutRecords();
   qrInput.focus();

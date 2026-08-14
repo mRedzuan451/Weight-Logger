@@ -1,13 +1,6 @@
 'use strict';
 
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem('current_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+const { getCurrentUser, isAdmin, redirectToLogin } = window.WeightLoggerUtils;
 
 const MAX_RECORD_AGE_DAYS = 60;
 const MAX_RECORD_AGE_MS = MAX_RECORD_AGE_DAYS * 24 * 60 * 60 * 1000;
@@ -35,13 +28,6 @@ function formatNumberAdmin(value, decimals = 2) {
   });
 }
 
-function isAdmin(user) {
-  return !!user && user.role === 'admin';
-}
-
-function redirectToLogin() {
-  window.location.href = 'login.html?return=admin.html';
-}
 
 function redirectToMenu() {
   window.location.href = 'menu.html';
@@ -50,7 +36,7 @@ function redirectToMenu() {
 function handleLogout(e) {
   e?.preventDefault();
   localStorage.removeItem('current_user');
-  redirectToLogin();
+  redirectToLogin('admin.html');
 }
 
 function pruneRecords(records) {
@@ -688,7 +674,7 @@ function clearAllData() {
 window.addEventListener('DOMContentLoaded', () => {
   const user = getCurrentUser();
   if (!user) {
-    redirectToLogin();
+    redirectToLogin('admin.html');
     return;
   }
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCurrentUser, isAdmin, redirectToLogin } = window.WeightLoggerUtils;
+
 const USER_ACCOUNTS_KEY = 'user_accounts';
 const GLOBAL_STOCK_TAKE_TOLERANCE_KEY = 'global_stock_take_tolerance_grams';
 const GLOBAL_STOCK_TAKE_DIFF_LIMIT_KEY = 'global_stock_take_diff_limit_grams';
@@ -18,14 +20,6 @@ const USERS_BACKUP_KEYS = [
   USER_ACCOUNTS_KEY,
 ];
 
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem('current_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function loadGlobalStockTakeDiffLimit() {
   try {
@@ -51,18 +45,12 @@ function saveGlobalStockTakeDiffLimit(value) {
   }
 }
 
-function isAdmin(user) {
-  return !!user && user.role === 'admin';
-}
 
 function isSupervisor(user) {
   if (!user) return false;
   return user.role === 'supervisor';
 }
 
-function redirectToLogin() {
-  window.location.href = 'login.html?return=users.html';
-}
 
 function getSstFeatureEnabled() {
   try {
@@ -508,7 +496,7 @@ function handleToggleActive(username) {
 window.addEventListener('DOMContentLoaded', () => {
   const me = getCurrentUser();
   if (!me || !isAdmin(me)) {
-    redirectToLogin();
+    redirectToLogin('users.html');
     return;
   }
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCurrentUser, redirectToLogin } = window.WeightLoggerUtils;
+
 const LOGIN_HISTORY_KEY = 'login_history';
 const RECORDS_PER_PAGE = 25;
 
@@ -12,18 +14,10 @@ const pageInfo = document.getElementById('page-info');
 let allRecords = [];
 let currentPage = 1;
 
-function getCurrentUser() {
-  try {
-    return JSON.parse(localStorage.getItem('current_user')) || null;
-  } catch {
-    return null;
-  }
-}
-
 function ensureAdmin() {
   const user = getCurrentUser();
   if (!user) {
-    redirectToLogin();
+    redirectToLogin('login-records.html');
     return false;
   }
   if (user.role !== 'admin') {
@@ -33,9 +27,6 @@ function ensureAdmin() {
   return true;
 }
 
-function redirectToLogin() {
-  window.location.href = 'login.html?return=login-records.html';
-}
 
 function readHistory() {
   try {

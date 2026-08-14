@@ -1,25 +1,10 @@
 'use strict';
 
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem('current_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function redirectToLogin() {
-  window.location.href = 'login.html?return=menu.html';
-}
+const { getCurrentUser, redirectToLogin, isAdmin } = window.WeightLoggerUtils;
 
 function handleLogout() {
   localStorage.removeItem('current_user');
-  redirectToLogin();
-}
-
-function isAdmin(user) {
-  return !!user && user.role === 'admin';
+  redirectToLogin('menu.html');
 }
 
 const SST_FEATURE_ENABLED_KEY = 'feature_sst_enabled';
@@ -154,7 +139,7 @@ function populateDashboard() {
 window.addEventListener('DOMContentLoaded', () => {
   const user = getCurrentUser();
   if (!user || !(user.name || user.username)) {
-    redirectToLogin();
+    redirectToLogin('menu.html');
     return;
   }
 
