@@ -10,8 +10,9 @@
     <link rel="icon" type="image/png" sizes="512x512" href="./assets/img/logoWeightLogger_512.png">
     <link rel="stylesheet" href="./assets/css/tailwind.min.css">
 </head>
-<body class="min-h-screen flex items-start justify-center font-sans bg-gray-100 p-6">
-    <div class="max-w-xl w-full bg-white shadow-xl rounded-xl p-10 space-y-9 text-center">
+<body class="min-h-screen font-sans bg-gray-100 p-6">
+    <div class="min-h-[calc(100vh-3rem)] w-full flex items-center justify-center">
+        <div class="max-w-xl w-full bg-white shadow-xl rounded-xl p-10 space-y-9 text-center">
         <div class="flex justify-end">
             <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                 Log out
@@ -71,6 +72,7 @@
                     </div>
                 </div>
             </div>
+        </div>
     </div>
 
     <script src="./scripts/sw-register.js" defer></script>
